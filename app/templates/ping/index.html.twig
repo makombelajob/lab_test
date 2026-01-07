@@ -3,15 +3,14 @@
 {% block title %}Profil - PentestLab
 {% endblock %}
 {% block javascripts %}
-    <script src='{{ asset("js/nextBtn.js") }}' defer ></script>
+    {# <script src='{{ asset("js/scripts.js") }}' defer ></script> #}
 {% endblock %}
 
 {% block body %}
-    <div class="profile-container">
+    <div class="scan-container">
         {% include '_partials/_aside.html.twig' %}
         <!-- Main Content -->
-        <main
-                class="profile-content">
+        <main class="scan-content">
             <!-- Ping Section -->
             <section id="ping-section" class="content-section active">
                 <div class="section-header">
@@ -55,7 +54,7 @@
                         <div id="ping-results" class="ping-results">
                             <div class="results-header">
                                 <h4 class="results-title">
-                                    <i class="bi bi-activity me-2"></i>Résultats
+                                    <i class="bi bi-activity me-2"></i>RésultatsS
                                 </h4>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="action-button">
                                     <i class="bi bi-arrow-right-circle me-1"></i>
@@ -71,110 +70,7 @@
                     {% endif %}
                 </div>
             </section>
-
-            <!-- Placeholder sections for other options -->
-            <section id="reconn-section" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-search me-2"></i>Reconnaissance
-                    </h2>
-                    {% if output %}
-                        <div class="results-content">
-                            <h3>Résultat du Reconn :</h3>
-                            <pre id="ping-output" class="ping-output">{{ output|e }}</pre>
-                        </div>
-                    {% endif %}
-                </div>
-            </section>
-
-            <section id="scan-section" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-radar me-2"></i>Scan
-                    </h2>
-                    <p class="section-description">Section en cours de développement...</p>
-                </div>
-            </section>
-
-            <section id="exploit-section" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-bug me-2"></i>Exploit
-                    </h2>
-                    <p class="section-description">Section en cours de développement...</p>
-                </div>
-            </section>
-
-            <section id="switch-section" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-arrow-left-right me-2"></i>Switch
-                    </h2>
-                    <p class="section-description">Section en cours de développement...</p>
-                </div>
-            </section>
-
-            <section id="post-exploit-section" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-terminal me-2"></i>Post-Exploit
-                    </h2>
-                    <p class="section-description">Section en cours de développement...</p>
-                </div>
-            </section>
-
-            <section id="clean-section" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-broom me-2"></i>Clean
-                    </h2>
-                    <p class="section-description">Section en cours de développement...</p>
-                </div>
-            </section>
-
-            <section id="rapport-section" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-file-earmark-text me-2"></i>Rapport
-                    </h2>
-                    <p class="section-description">Section en cours de développement...</p>
-                </div>
-            </section>
-
-            <section id="profil-section" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-person-circle me-2"></i>Profil
-                    </h2>
-                    <p class="section-description">Section en cours de développement...</p>
-                </div>
-            </section>
         </main>
     </div>
-
-    <script>
-        // Navigation
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const sectionId = this.getAttribute('data-section');
-
-                // Mettre à jour la navigation active
-                document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-                this.closest('.nav-item').classList.add('active');
-
-                // Afficher la section correspondante
-                document.querySelectorAll('.content-section').forEach(section => {
-                    section.classList.remove('active');
-                });
-
-                const targetSection = document.getElementById(sectionId + '-section');
-                if (targetSection) {
-                    targetSection.classList.add('active');
-                }
-            });
-        });
-
-    </script>
 
 {% endblock %}

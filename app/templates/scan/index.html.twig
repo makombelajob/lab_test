@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Hello ReconnController!{% endblock %}
+{% block title %}Hello ScanController!{% endblock %}
 
 {% block body %}
     <div class="scan-container">
@@ -8,13 +8,13 @@
         <!-- Main Content -->
         <main class="scan-content">
             <!-- Ping Section -->
-            <section id="reconn-section" class="content-section active">
+            <section id="scanner-section" class="content-section active">
                 <div class="section-header">
                     <h2 class="section-title">
-                        <i class="bi bi-search me-2"></i>Reconnaissance
+                        <i class="bi bi-search me-2"></i>Scan
                     </h2>
                     <p class="section-description">
-                        Testez les informations importantes ( ex email... ).
+                        Testez les vulnérabilités de votre serveur ou web.
                     </p>
                 </div>
                 {% for message in app.flashes('success') %}

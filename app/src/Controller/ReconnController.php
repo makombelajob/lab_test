@@ -11,8 +11,10 @@ final class ReconnController extends AbstractController
     #[Route('/reconn', name: 'app_reconn')]
     public function index(): Response
     {
-        return $this->render('reconn/index.html.twig', [
-            'controller_name' => 'ReconnController',
-        ]);
+        $this->denyAccessUnlessGranted('ROLE_USER');
+
+
+        $output = 'Testing display';
+        return $this->render('reconn/index.html.twig', compact('output'));
     }
 }

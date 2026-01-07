@@ -137,7 +137,7 @@ body {
 /* ============================================
    PROFILE PAGE LAYOUT
    ============================================ */
-.profile-container {
+.scan-container {
     display: flex;
     min-height: calc(100vh - 200px);
     background-color: var(--bg-light);
@@ -230,49 +230,49 @@ body {
 }
 
 .content-section {
-    display: none;
-    animation: fadeIn 0.3s ease;
+   display: none;
+   animation: fadeIn 0.3s ease !important;
 }
 
 .content-section.active {
-    display: block;
+   display: block;
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+   from {
+       opacity: 0;
+       transform: translateY(10px);
+   }
+   to {
+       opacity: 1;
+       transform: translateY(0);
+   }
 }
 
 .section-header {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid var(--border-color);
+   margin-bottom: 30px;
+   padding-bottom: 20px;
+   border-bottom: 2px solid var(--border-color);
 }
 
 .section-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary-color);
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
+   font-size: 2rem;
+   font-weight: 700;
+   color: var(--primary-color);
+   margin-bottom: 10px;
+   display: flex;
+   align-items: center;
 }
 
 .section-description {
-    color: var(--text-muted);
-    font-size: 1rem;
-    margin: 0;
+   color: var(--text-muted);
+   font-size: 1rem;
+   margin: 0;
 }
 
 /* ============================================
-   PING SECTION
-   ============================================ */
+  PING SECTION
+  ============================================ */
 .ping-container {
     background: var(--white);
     border-radius: 10px;
