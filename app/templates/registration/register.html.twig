@@ -1,0 +1,68 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Register{% endblock %}
+
+{% block body %}
+    <div class="auth-wrapper row">
+        <div class="auth-card col-6 m-auto">
+            <div class="auth-header text-center mb-4">
+                <h1 class="auth-title">Créer un compte</h1>
+                <p class="auth-subtitle">Rejoignez la plateforme en quelques secondes</p>
+            </div>
+
+            {% for flash_error in app.flashes('verify_email_error') %}
+                <div class="alert alert-danger mb-3">{{ flash_error }}</div>
+            {% endfor %}
+
+            {{ form_errors(registrationForm) }}
+
+            {{ form_start(registrationForm, {'attr': {'class': 'auth-form'}}) }}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    {{ form_label(registrationForm.firstName, 'Prénom', {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(registrationForm.firstName, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(registrationForm.firstName) }}
+                </div>
+                <div class="col-md-6">
+                    {{ form_label(registrationForm.lastName, 'Nom', {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(registrationForm.lastName, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(registrationForm.lastName) }}
+                </div>
+            </div>
+
+            <div class="mt-3">
+                {{ form_label(registrationForm.email, 'Adresse e-mail', {'label_attr': {'class': 'form-label'}}) }}
+                {{ form_widget(registrationForm.email, {'attr': {'class': 'form-control'}}) }}
+                {{ form_errors(registrationForm.email) }}
+            </div>
+
+            <div class="mt-3">
+                {{ form_label(registrationForm.category, 'Profil', {'label_attr': {'class': 'form-label'}}) }}
+                {{ form_widget(registrationForm.category, {'attr': {'class': 'form-control'}}) }}
+                {{ form_errors(registrationForm.category) }}
+            </div>
+
+            <div class="mt-3">
+                {{ form_label(registrationForm.plainPassword, 'Mot de passe', {'label_attr': {'class': 'form-label'}}) }}
+                {{ form_widget(registrationForm.plainPassword, {'attr': {'class': 'form-control'}}) }}
+                {{ form_errors(registrationForm.plainPassword) }}
+            </div>
+
+            <div class="form-check mt-3">
+                {{ form_widget(registrationForm.agreeTerms, {'attr': {'class': 'form-check-input'}}) }}
+                {{ form_label(registrationForm.agreeTerms, null, {'label_attr': {'class': 'form-check-label'}}) }}
+                {{ form_errors(registrationForm.agreeTerms) }}
+            </div>
+
+            <div class="auth-actions mt-4">
+                <button type="submit" class="btn btn-primary-custom w-100">S'inscrire</button>
+            </div>
+            {{ form_end(registrationForm) }}
+
+            <div class="auth-footer text-center mt-3">
+                <span class="text-muted">Déjà inscrit ?</span>
+                <a href="{{ path('app_login') }}" class="link-highlight ms-1">Se connecter</a>
+            </div>
+        </div>
+    </div>
+{% endblock %}

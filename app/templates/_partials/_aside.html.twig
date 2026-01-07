@@ -1,0 +1,71 @@
+<aside class="profile-sidebar">
+    <div class="sidebar-header">
+        <h3 class="sidebar-title">
+            <i class="bi bi-shield-lock me-2"></i>PentestLab
+        </h3>
+    </div>
+    <nav class="sidebar-nav">
+        <ul class="nav-menu">
+            <li class="nav-item active">
+                <a href="" class="nav-link" data-section="ping">
+                    <i class="bi bi-wifi"></i>
+                    <span>Ping</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ path('app_reconn') }}" class="nav-link" data-section="reconn">
+                    <i class="bi bi-search"></i>
+                    <span>Reconn</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#scan" class="nav-link" data-section="scan">
+                    <i class="bi bi-radar"></i>
+                    <span>Scan</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#exploit" class="nav-link" data-section="exploit">
+                    <i class="bi bi-bug"></i>
+                    <span>Exploit</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#switch" class="nav-link" data-section="switch">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <span>Switch</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#post-exploit" class="nav-link" data-section="post-exploit">
+                    <i class="bi bi-terminal"></i>
+                    <span>Post-Exploit</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#clean" class="nav-link" data-section="clean">
+                    <i class="bi bi-trash"></i>
+                    <span>Clean</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#rapport" class="nav-link" data-section="rapport">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span>Rapport</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#profil" class="nav-link" data-section="profil">
+                    <i class="bi bi-person-circle"></i>
+                    <span>Profil</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ logout_path() }}" class="nav-logout" data-section="logout">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</aside>

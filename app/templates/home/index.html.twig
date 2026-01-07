@@ -1,0 +1,149 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}PentestLab - Plateforme de Test de Pénétration
+{% endblock %}
+
+{% block body %}
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6 hero-content">
+                    <h1 class="display-4 fw-bold mb-4">Plateforme de Test de Pénétration</h1>
+                    <p class="lead mb-4">
+                        Outil professionnel pour évaluer la sécurité de vos applications web.Détectez les vulnérabilités avant qu'elles ne soient exploitées.
+                    </p>
+                    <div class="d-flex gap-3">
+                        <a href="{{ path('app_login') }}" class="btn btn-primary-custom btn-lg text-white">
+                            <i class="bi bi-play-circle me-2"></i>Commencer un scan
+                        </a>
+                        <a href="{{ path('app_tutorial') }}" class="btn btn-outline-light btn-lg">
+                            <i class="bi bi-info-circle me-2"></i>En savoir plus
+                        </a>
+                    </div>
+                </div>
+                <div class="col-lg-6 text-center">
+                    <i class="bi bi-shield-check" style="font-size: 15rem; opacity: 0.2;"></i>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-5">
+        <div class="container">
+            <h2 class="text-center section-title">Fonctionnalités Principales</h2>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card feature-card p-4">
+                        <div class="card-body text-center">
+                            <i class="bi bi-bug feature-icon"></i>
+                            <h4 class="card-title">Détection de Vulnérabilités</h4>
+                            <p class="card-text">
+                                Identification automatique des failles de sécurité courantes
+                                (SQL Injection, XSS, CSRF, etc.)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card p-4">
+                        <div class="card-body text-center">
+                            <i class="bi bi-graph-up-arrow feature-icon"></i>
+                            <h4 class="card-title">Rapports Détaillés</h4>
+                            <p class="card-text">
+                                Génération de rapports complets avec recommandations
+                                pour corriger les vulnérabilités détectées.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card p-4">
+                        <div class="card-body text-center">
+                            <i class="bi bi-clock-history feature-icon"></i>
+                            <h4 class="card-title">Scans Automatisés</h4>
+                            <p class="card-text">
+                                Planification de scans récurrents pour surveiller
+                                en continu la sécurité de vos applications.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card p-4">
+                        <div class="card-body text-center">
+                            <i class="bi bi-shield-lock feature-icon"></i>
+                            <h4 class="card-title">Tests Multi-Couches</h4>
+                            <p class="card-text">
+                                Analyse approfondie de l'infrastructure,
+                                des applications et des APIs.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card p-4">
+                        <div class="card-body text-center">
+                            <i class="bi bi-file-earmark-text feature-icon"></i>
+                            <h4 class="card-title">Historique des Scans</h4>
+                            <p class="card-text">
+                                Conservation de l'historique complet de tous vos scans
+                                pour suivre l'évolution de la sécurité.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card p-4">
+                        <div class="card-body text-center">
+                            <i class="bi bi-people feature-icon"></i>
+                            <h4 class="card-title">Gestion d'Équipe</h4>
+                            <p class="card-text">
+                                Collaboration facilitée avec votre équipe pour
+                                partager les résultats et coordonner les corrections.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-3 stat-item">
+                    <div class="stat-number">1000+</div>
+                    <p class="text-muted">Scans effectués</p>
+                </div>
+                <div class="col-md-3 stat-item">
+                    <div class="stat-number">500+</div>
+                    <p class="text-muted">Vulnérabilités détectées</p>
+                </div>
+                <div class="col-md-3 stat-item">
+                    <div class="stat-number">50+</div>
+                    <p class="text-muted">Applications sécurisées</p>
+                </div>
+                <div class="col-md-3 stat-item">
+                    <div class="stat-number">99%</div>
+                    <p class="text-muted">Taux de précision</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container text-center">
+            <h2 class="display-5 fw-bold mb-4">Prêt à sécuriser vos applications ?</h2>
+            <p class="lead mb-4">
+                Rejoignez notre plateforme et commencez à protéger vos systèmes dès aujourd'hui.
+            </p>
+            <a href="{{ path('app_tutorial') }}" class="btn btn-light btn-lg">
+                <i class="bi bi-rocket-takeoff me-2"></i>Démarrer le tuto
+            </a>
+        </div>
+    </section>
+{% endblock %}
