@@ -376,8 +376,10 @@ body {
     font-size: 0.9rem;
     line-height: 1.6;
     margin: 0;
+    padding: 5px 10px;       /* <- espace intérieur du bloc */
     white-space: pre-wrap;
     word-wrap: break-word;
+    display: block;
 }
 
 /* ============================================
