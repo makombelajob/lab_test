@@ -41,7 +41,7 @@ def main():
 
     with conn.cursor(dictionary=True) as cur:
         cur.execute(
-            '''SELECT hostname FROM ping
+            '''SELECT id, hostname FROM ping
                WHERE user_id = %s
                AND ip_address = %s
                AND hostname IS NOT NULL
@@ -54,7 +54,8 @@ def main():
         if not row:
             print("Aucun hostname trouvé")
             return
-
+        ## Retrieve some variable
+        ping_id = row['id']
         base_url = row['hostname']
         if not base_url.startswith(('http://', 'https://')):
             base_url = 'http://' + base_url
@@ -118,7 +119,33 @@ def main():
         print("\nEmails trouvés (total) :")
         for email in all_emails:
             print(" -", email)
-
-
+            
+        # ============== Save in database ==========
+        all_links = set(linksFound + selected_links)
+        
+        # retrieve username from email found
+        users_found = set()
+        for email in all_emails :
+            if "@" in email :
+                local_part = email.split("@")[0]
+                users_found.add(local_part.lower())
+                
+        all_emails_str = ", ".join(sorted(set(all_emails)))
+        all_users_str = ", ".join(sorted(set(users_found)))
+        all_links_str = ", ".join(sorted(set(all_links)))
+        
+        ## Storing in dbs
+        cur = conn.cursor(dictionary=True)
+        try:  
+            cur.execute(
+                '''INSERT INTO reconn (email_found, user_found, link_found, ping_id)
+               VALUES (%s, %s, %s, %s)''',
+               (all_emails_str, all_users_str, all_links_str, ping_id)
+            )
+            conn.commit()
+            print(f"✅ Emails, users et liens enregistrés pour cible={base_url}")
+        except Exception as e :
+            print("❌ Erreur lors de l'insertion :", e)
+            conn.rollback()
 if __name__ == "__main__":
     main()
