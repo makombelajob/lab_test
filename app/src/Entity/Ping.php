@@ -1,0 +1,139 @@
+<?php
+
+namespace App\Entity;
+
+use App\Repository\PingRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\Entity(repositoryClass: PingRepository::class)]
+class Ping
+{
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column]
+    private ?int $id = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $hostname = null;
+
+    #[ORM\Column(length: 18, nullable: true)]
+    private ?string $ipAddress = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $status = null;
+
+    #[ORM\Column]
+    private ?\DateTimeImmutable $scanAt = null;
+
+    #[ORM\ManyToOne(inversedBy: 'ping')]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?User $user = null;
+
+    /**
+     * @var Collection<int, Reconn>
+     */
+    #[ORM\OneToMany(targetEntity: Reconn::class, mappedBy: 'ping')]
+    private Collection $reconn;
+
+    public function __construct()
+    {
+        $this->reconn = new ArrayCollection();
+    }
+
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
+    public function getHostname(): ?string
+    {
+        return $this->hostname;
+    }
+
+    public function setHostname(?string $hostname): static
+    {
+        $this->hostname = $hostname;
+
+        return $this;
+    }
+
+    public function getIpAddress(): ?string
+    {
+        return $this->ipAddress;
+    }
+
+    public function setIpAddress(?string $ipAddress): static
+    {
+        $this->ipAddress = $ipAddress;
+
+        return $this;
+    }
+
+    public function isStatus(): ?bool
+    {
+        return $this->status;
+    }
+
+    public function setStatus(?bool $status): static
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
+    public function getScanAt(): ?\DateTimeImmutable
+    {
+        return $this->scanAt;
+    }
+
+    public function setScanAt(\DateTimeImmutable $scanAt): static
+    {
+        $this->scanAt = $scanAt;
+
+        return $this;
+    }
+
+    public function getUser(): ?User
+    {
+        return $this->user;
+    }
+
+    public function setUser(?User $user): static
+    {
+        $this->user = $user;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Reconn>
+     */
+    public function getReconn(): Collection
+    {
+        return $this->reconn;
+    }
+
+    public function addReconn(Reconn $reconn): static
+    {
+        if (!$this->reconn->contains($reconn)) {
+            $this->reconn->add($reconn);
+            $reconn->setPing($this);
+        }
+
+        return $this;
+    }
+
+    public function removeReconn(Reconn $reconn): static
+    {
+        if ($this->reconn->removeElement($reconn)) {
+            // set the owning side to null (unless already changed)
+            if ($reconn->getPing() === $this) {
+                $reconn->setPing(null);
+            }
+        }
+
+        return $this;
+    }
+}
