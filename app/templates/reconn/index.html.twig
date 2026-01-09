@@ -1,55 +1,57 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Reconnaissance{% endblock %}
+{% block title %}Reconnaissance
+{% endblock %}
 
 {% block body %}
-    <div class="scan-container">
-        {% include '_partials/_aside.html.twig' %}
+	<div class="scan-container">
+		{% include '_partials/_aside.html.twig' %}
 
-        <!-- Main Content -->
-        <main class="scan-content">
-            <!-- Recon Section -->
-            <section id="reconn-section" class="content-section active">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="bi bi-search me-2"></i>Reconnaissance
-                    </h2>
-                    <p class="section-description">
-                        Testez les informations importantes (ex email...).
-                    </p>
-                </div>
+		<!-- Main Content -->
+		<main
+			class="scan-content">
+			<!-- Recon Section -->
+			<section id="reconn-section" class="content-section active">
+				<div class="section-header">
+					<h2 class="section-title">
+						<i class="bi bi-search me-2"></i>Reconnaissance
+					</h2>
+					<p class="section-description">
+						Testez les informations importantes (ex email...).
+					</p>
+				</div>
 
-                <!-- Flash messages -->
-                {% for message in app.flashes('success') %}
-                    <div class="alert alert-success">{{ message }}</div>
-                {% endfor %}
-                {% for message in app.flashes('danger') %}
-                    <div class="alert alert-danger">{{ message }}</div>
-                {% endfor %}
+				<!-- Flash messages -->
+				{% for message in app.flashes('success') %}
+					<div class="alert alert-success">{{ message }}</div>
+				{% endfor %}
+				{% for message in app.flashes('danger') %}
+					<div class="alert alert-danger">{{ message }}</div>
+				{% endfor %}
 
-                <!-- Résultats du script -->
-                {% if showResult %}
-                    <div id="ping-results" class="ping-results">
-                        <div class="results-header">
-                            <h4 class="results-title">
-                                <i class="bi bi-activity me-2"></i>Résultats
-                            </h4>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="action-button">
-                                <i class="bi bi-arrow-right-circle me-1"></i>
-                                <span></span>
-                            </button>
-                        </div>
+				<!-- Résultats du script -->
+				{% if showResult %}
+					<div id="ping-results" class="ping-results">
+						<div class="results-header">
+							<h4 class="results-title">
+								<i class="bi bi-activity me-2"></i>Résultats
+							</h4>
+							<button type="button" class="btn btn-sm btn-outline-secondary" id="action-button">
+								<i class="bi bi-arrow-right-circle me-1"></i>
+								<span></span>
+							</button>
+						</div>
 
-                        <div class="results-content">
-                            <h3>Résultat du Reconn :</h3>
-                            <pre id="ping-output" class="ping-output"> {{ output }}
+						<div class="results-content">
+							<h3>Résultat du Reconn :</h3>
+							<pre id="ping-output" class="ping-output"> {{ output }}
                             </pre>
-                        </div>
-                    </div>
-                {% else %}
-                    <p>Aucun résultat pour le moment.</p>
-                {% endif %}
-            </section>
-        </main>
-    </div>
+						</div>
+					</div>
+				{% else %}
+					<p>Aucun résultat pour le moment.</p>
+				{% endif %}
+			</section>
+		</main>
+	</div>
 {% endblock %}
