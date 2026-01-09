@@ -244,7 +244,7 @@ docker-compose build --no-cache php
 
 ```bash
 # Donner les permissions au dossier var/
-docker exec php_pi chmod -R 777 /var/www/html/var
+docker exec php_lab chmod -R 777 /var/www/html/var
 ```
 
 ## 📚 Ressources
@@ -260,5 +260,5 @@ Propriétaire
 
 ---
 
-**Développé avec ❤️ pour PentestLab PI**
+**Développé par JOB-JOHNNY avec ❤️ pour PentestLab**
 
