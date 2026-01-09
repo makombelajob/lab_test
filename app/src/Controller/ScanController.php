@@ -48,7 +48,7 @@ final class ScanController extends AbstractController
             }
         }
 
-        return $this->render('reconn/index.html.twig', [
+        return $this->render('scan/index.html.twig', [
             'showResult' => $showResult,
             'output' => $output
         ]);

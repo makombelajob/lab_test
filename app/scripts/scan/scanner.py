@@ -1,8 +1,8 @@
-import sys, subprocess, ipaddress, socket, ssl, time
+import sys, socket, ssl, time, json
 import urllib.request, urllib.parse, urllib.error
 from concurrent.futures import ThreadPoolExecutor
 from scripts.db.mysql_conn import get_connection
-from bs4 import BeautifulSoup
+#from bs4 import BeautifulSoup
 import re
 
 ctx = ssl.create_default_context()
@@ -10,6 +10,7 @@ ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
 
 def main():
+    start_time = time.time()
     if len(sys.argv) < 3:
         print("Usage : python scanner.py <user_id> <hostname|ip>")
         sys.exit(0)
@@ -21,9 +22,28 @@ def main():
     timeout = 5
     max_threads = 100
     
+    
     print(f"\n==== Scan de la cible {target} ======\n")
     open_ports = []
-    
+    # =============================
+    # OS FINGERPRINTING (simple)
+    # =============================
+    print("\n====== Détection du système ======")
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5)
+        s.connect((target, 80))
+        ttl = s.getsockopt(socket.IPPROTO_IP, socket.IP_TTL)
+        s.close() 
+        if ttl <= 64:
+            os_guess = "Linux / Unix"
+        elif ttl <= 128:
+            os_guess = "Windows"
+        else:
+            os_guess = "Routeur / BSD"
+        print(f" OS probable : {os_guess} (TTL={ttl})\n")
+    except:
+        print(" OS non détectable\n")
     # ----------------------------
     # 1 Scan des ports
     # ----------------------------
@@ -55,7 +75,7 @@ def main():
     # 2 Pour chaque port → bannière → version
     # ----------------------------
     print("\n======= Analyse des services & vulnérabiliés =======\n")
-
+    
     for port in open_ports:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -146,7 +166,47 @@ def main():
                     continue
 
                 print(f"   → Détecté : {product} {version}\n")
+                ## Seting time        
+                elapsed = time.time() - start_time
+                print(f"\nTemps d'exécution : {elapsed:.2f} secondes\n")
+                # ----------------------------
+                # Recherche CVE (Vulners)
+                # ----------------------------
+                
+                bad = ["http", "https", "ftp", "rtsp", "smtp", "imap", "pop", "tcp", "udp"]
+                if product.lower() in bad:
+                    print("   → Protocole détecté, pas un logiciel → pas de CVE\n")
+                    continue
 
+                # Ignore les produits sans vraie version
+                if not re.match(r"[0-9]+\.[0-9]+", version):
+                    print("   → Version trop vague → pas de recherche CVE\n")
+                    continue
+
+                try:
+                    query = f"{product} {version}"
+                    url = "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=" + urllib.parse.quote(query)
+
+                    resp = urllib.request.urlopen(url, timeout=15)
+                    data = json.loads(resp.read().decode())
+
+                    vulns = data.get("vulnerabilities", [])
+
+                    if not vulns:
+                        print("   → Aucune vulnérabilité connue\n")
+                    else:
+                        print("   → Vulnérabilités trouvées :")
+                        for v in vulns[:5]:
+                            cve = v["cve"]["id"]
+                            score = "N/A"
+                            metrics = v["cve"].get("metrics", {})
+                            if "cvssMetricV31" in metrics:
+                                score = metrics["cvssMetricV31"][0]["cvssData"]["baseScore"]
+                            print(f"      - {cve} (CVSS {score})")
+                        print()
+                except Exception as e:
+                    print("   → Erreur recherche CVE :", e, "\n")
+                
         except:
             print("  -> Erreur lors de la requête vulnérabilités\n")
 
