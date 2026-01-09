@@ -1,8 +1,7 @@
 import sys, socket, ssl, time, json
-import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from scripts.db.mysql_conn import get_connection
-#from bs4 import BeautifulSoup
 import re
 
 ctx = ssl.create_default_context()
@@ -11,42 +10,69 @@ ctx.verify_mode = ssl.CERT_NONE
 
 def main():
     start_time = time.time()
+
     if len(sys.argv) < 3:
         print("Usage : python scanner.py <user_id> <hostname|ip>")
         sys.exit(0)
-        
+
     user_id, target = sys.argv[1], sys.argv[2]
+
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+
+    # =======================
+    # Get ping_id
+    # =======================
+    cur.execute("""
+        SELECT id FROM ping
+        WHERE user_id=%s AND ip_address=%s
+        ORDER BY scan_at DESC
+        LIMIT 1
+    """, (user_id, target))
+
+    row = cur.fetchone()
+    if not row:
+        print("❌ Aucun ping trouvé pour cette cible")
+        return
+
+    ping_id = row["id"]
 
     start_port = 1
     end_port = 1024
     timeout = 5
     max_threads = 100
-    
-    
+
     print(f"\n==== Scan de la cible {target} ======\n")
-    open_ports = []
+
     # =============================
-    # OS FINGERPRINTING (simple)
+    # OS Fingerprint
     # =============================
-    print("\n====== Détection du système ======")
+    os_guess = None
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(5)
         s.connect((target, 80))
         ttl = s.getsockopt(socket.IPPROTO_IP, socket.IP_TTL)
-        s.close() 
+        s.close()
+
         if ttl <= 64:
             os_guess = "Linux / Unix"
         elif ttl <= 128:
             os_guess = "Windows"
         else:
             os_guess = "Routeur / BSD"
+
+        print("====== Détection du système ======")
         print(f" OS probable : {os_guess} (TTL={ttl})\n")
     except:
+        print("====== Détection du système ======")
         print(" OS non détectable\n")
-    # ----------------------------
-    # 1 Scan des ports
-    # ----------------------------
+
+    # =============================
+    # Scan ports
+    # =============================
+    open_ports = []
+
     def scan_port(port):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -70,92 +96,65 @@ def main():
         return
 
     print("\nPorts ouverts :", open_ports)
-    
-    # ----------------------------
-    # 2 Pour chaque port → bannière → version
-    # ----------------------------
-    print("\n======= Analyse des services & vulnérabiliés =======\n")
-    
+    print("\n======= Analyse des services & vulnérabilités =======\n")
+
+    # =============================
+    # Analyse ports
+    # =============================
     for port in open_ports:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.settimeout(2)
                 sock.connect((target, port))
 
-                # ----------------------------
-                # CORRECTION : fingerprinting automatique
-                # ----------------------------
                 banner = ""
 
-                # 1) Lire si le service parle tout seul (FTP, SSH, MySQL, etc.)
                 try:
-                    data = sock.recv(1024)
-                    if data:
-                        banner += data.decode(errors="ignore")
+                    banner += sock.recv(1024).decode(errors="ignore")
                 except:
                     pass
 
-                # 2) Tester HTTP
                 try:
                     sock.send(b"HEAD / HTTP/1.1\r\nHost: " + target.encode() + b"\r\n\r\n")
-                    data = sock.recv(1024)
-                    if data:
-                        banner += data.decode(errors="ignore")
+                    banner += sock.recv(1024).decode(errors="ignore")
                 except:
                     pass
 
-                # 3) Tester HTTPS
                 try:
                     ssl_sock = ctx.wrap_socket(sock, server_hostname=target)
                     ssl_sock.send(b"HEAD / HTTP/1.1\r\nHost: " + target.encode() + b"\r\n\r\n")
-                    data = ssl_sock.recv(1024)
-                    if data:
-                        banner += data.decode(errors="ignore")
-                except:
-                    pass
-
-                # 4) Tester SMTP
-                try:
-                    sock.send(b"EHLO test\r\n")
-                    data = sock.recv(1024)
-                    if data:
-                        banner += data.decode(errors="ignore")
-                except:
-                    pass
-
-                # 5) Tester RTSP
-                try:
-                    sock.send(b"OPTIONS * RTSP/1.0\r\n\r\n")
-                    data = sock.recv(1024)
-                    if data:
-                        banner += data.decode(errors="ignore")
+                    banner += ssl_sock.recv(1024).decode(errors="ignore")
                 except:
                     pass
 
                 banner = banner.strip()
-                # ----------------------------
 
                 print(f"[PORT {port}]")
-                if banner:
-                    print(" Service :", banner)
-                else:
+                if not banner:
                     print("Service : Inconnu ( no banner )")
                     print("-> Impossible de chercher des CVE\n")
+
+                    # insert minimal
+                    cur.execute("""
+                        INSERT INTO scanner (port, state, ping_id, os_detected)
+                        VALUES (%s,%s,%s,%s)
+                    """, (port, "open", ping_id, os_guess))
+                    conn.commit()
                     continue
 
-                # ----------------------------
-                # Détection produit + version
-                # ----------------------------
+                print(" Service :", banner)
+
+                # =============================
+                # Detect product + version
+                # =============================
                 product = None
                 version = None
 
-                # Cherche d'abord l'entête Server (HTTP/HTTPS)
                 server_match = re.search(r"Server:\s*([A-Za-z\-]+)\/([0-9\.]+)", banner)
                 if server_match:
                     product = server_match.group(1)
                     version = server_match.group(2)
                 else:
-                    # Fallback générique (FTP, RTSP, etc.)
                     generic = re.search(r"([A-Za-z\-]+)[/ _]?([0-9]+\.[0-9]+)", banner)
                     if generic:
                         product = generic.group(1)
@@ -163,53 +162,65 @@ def main():
 
                 if not product:
                     print("   → Service détecté mais version inconnue\n")
+
+                    cur.execute("""
+                        INSERT INTO scanner (port, state, ping_id, os_detected, description)
+                        VALUES (%s,%s,%s,%s,%s)
+                    """, (port, "open", ping_id, os_guess, banner[:1000]))
+                    conn.commit()
                     continue
 
-                print(f"   → Détecté : {product} {version}\n")
-                ## Seting time        
-                elapsed = time.time() - start_time
-                print(f"\nTemps d'exécution : {elapsed:.2f} secondes\n")
-                # ----------------------------
-                # Recherche CVE (Vulners)
-                # ----------------------------
-                
-                bad = ["http", "https", "ftp", "rtsp", "smtp", "imap", "pop", "tcp", "udp"]
-                if product.lower() in bad:
-                    print("   → Protocole détecté, pas un logiciel → pas de CVE\n")
-                    continue
+                print(f"   → Détecté : {product} {version}")
 
-                # Ignore les produits sans vraie version
-                if not re.match(r"[0-9]+\.[0-9]+", version):
-                    print("   → Version trop vague → pas de recherche CVE\n")
-                    continue
+                # =============================
+                # CVE lookup
+                # =============================
+                vuln_list = []
+                bad = ["http","https","ftp","smtp","imap","pop","tcp","udp","rtsp"]
 
-                try:
-                    query = f"{product} {version}"
-                    url = "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=" + urllib.parse.quote(query)
+                if product.lower() not in bad and re.match(r"[0-9]+\.[0-9]+", version):
+                    try:
+                        query = f"{product} {version}"
+                        url = "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=" + urllib.parse.quote(query)
+                        resp = urllib.request.urlopen(url, timeout=15)
+                        data = json.loads(resp.read().decode())
 
-                    resp = urllib.request.urlopen(url, timeout=15)
-                    data = json.loads(resp.read().decode())
-
-                    vulns = data.get("vulnerabilities", [])
-
-                    if not vulns:
-                        print("   → Aucune vulnérabilité connue\n")
-                    else:
-                        print("   → Vulnérabilités trouvées :")
-                        for v in vulns[:5]:
+                        for v in data.get("vulnerabilities", [])[:5]:
                             cve = v["cve"]["id"]
-                            score = "N/A"
-                            metrics = v["cve"].get("metrics", {})
-                            if "cvssMetricV31" in metrics:
-                                score = metrics["cvssMetricV31"][0]["cvssData"]["baseScore"]
-                            print(f"      - {cve} (CVSS {score})")
-                        print()
-                except Exception as e:
-                    print("   → Erreur recherche CVE :", e, "\n")
-                
-        except:
-            print("  -> Erreur lors de la requête vulnérabilités\n")
+                            vuln_list.append(cve)
+                    except:
+                        pass
 
+                vuln_str = ", ".join(vuln_list) if vuln_list else None
+
+                # =============================
+                # INSERT into DB
+                # =============================
+                try:
+                    cur.execute("""
+                        INSERT INTO scanner
+                        (port, service, version, script_vuln, state, os_detected, ping_id, description)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (
+                        port,
+                        product,
+                        version,
+                        vuln_str,
+                        "open",
+                        os_guess,
+                        ping_id,
+                        banner[:1000]
+                    ))
+                    conn.commit()
+                except Exception as e:
+                    print("❌ Erreur insertion DB :", e)
+                    conn.rollback()
+
+        except Exception as e:
+            print("  -> Erreur port", port, e)
+
+    elapsed = time.time() - start_time
+    print(f"\nTemps d'exécution : {elapsed:.2f} secondes\n")
 
 if __name__ == "__main__":
     main()
