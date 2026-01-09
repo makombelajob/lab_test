@@ -93,7 +93,7 @@ def main():
         print("Liens trouvés :", len(linksFound))
 
         # ================= SÉLECTION 20 + 20 =================
-        selected_links = linksFound[:20] + linksFound[-20:]
+        selected_links = linksFound[:10] + linksFound[-10:]
         selected_links = list(dict.fromkeys(selected_links))
 
         print("Liens exploités :", len(selected_links))
@@ -113,23 +113,32 @@ def main():
         # ================= RÉSULTAT FINAL =================
         all_emails = list(set(all_emails))
         
-        elapsed = time.time() - start_time
-        print(f"\nTemps d'exécution : {elapsed:.2f} secondes")
-        
-        print("\nEmails trouvés (total) :")
-        for email in all_emails:
-            print(" -", email)
-            
-        # ============== Save in database ==========
-        all_links = set(linksFound + selected_links)
-        
-        # retrieve username from email found
+        ### ==== Construct user found
         users_found = set()
         for email in all_emails :
             if "@" in email :
                 local_part = email.split("@")[0]
                 users_found.add(local_part.lower())
                 
+        ## Seting time        
+        elapsed = time.time() - start_time
+        print(f"\nTemps d'exécution : {elapsed:.2f} secondes")
+        
+        print("\nEmails trouvés (total) :")
+        for email in all_emails:
+            print(" -", email)
+        
+        print('\nUser found from emails - ')    
+        for user in users_found :
+            print(' -', user)
+            
+        # ============== Save in database ==========
+        all_links = set(linksFound + selected_links)
+        
+        # retrieve username from email found
+        
+        
+             
         all_emails_str = ", ".join(sorted(set(all_emails)))
         all_users_str = ", ".join(sorted(set(users_found)))
         all_links_str = ", ".join(sorted(set(all_links)))
@@ -147,5 +156,6 @@ def main():
         except Exception as e :
             print("❌ Erreur lors de l'insertion :", e)
             conn.rollback()
+            
 if __name__ == "__main__":
     main()
