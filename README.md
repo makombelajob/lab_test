@@ -200,7 +200,7 @@ L'application utilise Doctrine ORM avec les entités suivantes :
 
 Accédez à : http://localhost:8080/
 
-Cette route exécute le script `scripts/import_test.py` et affiche le résultat.
+Cette route exécute le script `scripts/*` et affiche le résultat.
 
 ## 📝 Notes de Développement
 
