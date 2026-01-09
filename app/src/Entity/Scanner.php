@@ -9,6 +9,9 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ScannerRepository::class)]
+#[ORM\Table(name: "scanner", uniqueConstraints: [
+    new ORM\UniqueConstraint(name: "unique_port_ping", columns: ["port", "ping_id"])
+])]
 class Scanner
 {
     #[ORM\Id]
