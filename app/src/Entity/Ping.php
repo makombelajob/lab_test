@@ -37,9 +37,16 @@ class Ping
     #[ORM\OneToMany(targetEntity: Reconn::class, mappedBy: 'ping')]
     private Collection $reconn;
 
+    /**
+     * @var Collection<int, Scanner>
+     */
+    #[ORM\OneToMany(targetEntity: Scanner::class, mappedBy: 'ping')]
+    private Collection $scanner;
+
     public function __construct()
     {
         $this->reconn = new ArrayCollection();
+        $this->scanner = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -131,6 +138,36 @@ class Ping
             // set the owning side to null (unless already changed)
             if ($reconn->getPing() === $this) {
                 $reconn->setPing(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Scanner>
+     */
+    public function getScanner(): Collection
+    {
+        return $this->scanner;
+    }
+
+    public function addScanner(Scanner $scanner): static
+    {
+        if (!$this->scanner->contains($scanner)) {
+            $this->scanner->add($scanner);
+            $scanner->setPing($this);
+        }
+
+        return $this;
+    }
+
+    public function removeScanner(Scanner $scanner): static
+    {
+        if ($this->scanner->removeElement($scanner)) {
+            // set the owning side to null (unless already changed)
+            if ($scanner->getPing() === $this) {
+                $scanner->setPing(null);
             }
         }
 

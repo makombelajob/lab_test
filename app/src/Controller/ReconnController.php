@@ -30,7 +30,11 @@ final class ReconnController extends AbstractController
 
         if ($ipTarget) {
             // Chemins Python
-            $userId = (int) $this->getUser()->getId();
+            /**
+             * @var \App\Entity\User $user
+             */
+            $user = $this->getUser();
+            $userId = $user->getId();
             $pyBin = '/opt/venv/bin/python3';
             $pyScript = 'scripts/reconn/emailfound.py'; // chemin relatif si fichier
             $projectRoot = $this->getParameter('kernel.project_dir');
