@@ -145,12 +145,23 @@ def main():
         
         ## Storing in dbs
         cur = conn.cursor(dictionary=True)
-        try:  
-            cur.execute(
-                '''INSERT INTO reconn (email_found, user_found, link_found, ping_id)
-               VALUES (%s, %s, %s, %s)''',
-               (all_emails_str, all_users_str, all_links_str, ping_id)
+        try:
+            cur.execute('''SELECT ping_id FROM reconn WHERE id = %s ''',
+                (user_id,)
             )
+            row = cur.fetchone()
+            if row is None :  
+                cur.execute(
+                    '''INSERT INTO reconn (email_found, user_found, link_found, ping_id)
+                    VALUES (%s, %s, %s, %s)''',
+                    (all_emails_str, all_users_str, all_links_str, ping_id)
+                )
+            else:
+                cur.execute('''
+                    UPDATE reconn SET email_found = %s, user_found = %s, link_found = %s, ping_id = %s
+                    WHERE id = %s AND hostname = %s''',
+                    (all_emails_str, all_users_str, all_links_str, ping_id, user_id, target)
+                )
             conn.commit()
             print(f"✅ Emails, users et liens enregistrés pour cible={base_url}")
         except Exception as e :

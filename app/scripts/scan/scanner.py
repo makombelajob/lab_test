@@ -204,21 +204,32 @@ def main():
                 # INSERT into DB
                 # =============================
                 try:
-                    cur.execute("""
-                        INSERT INTO scanner
-                        (port, service, version, script_vuln, state, os_detected, ping_id, description)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                    """, (
-                        port,
-                        product,
-                        version,
-                        vuln_str,
-                        "open",
-                        os_guess,
-                        ping_id,
-                        banner[:1000]
-                    ))
+                    cur.execute(""" SELECT * FROM scanner WHERE port = %s AND ping_id = %s """, 
+                        (port, ping_id))
+                    row = cur.fetchone() 
+                    if row is None:
+                        cur.execute("""
+                            INSERT INTO scanner
+                            (port, service, version, script_vuln, state, os_detected, ping_id, description)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                        """, (
+                            port, product, version, vuln_str, "open", os_guess, ping_id, banner[:1000]
+                        ))
+                    else:
+                       cur.execute("""
+                            UPDATE scanner
+                            SET service = %s,
+                                version = %s,
+                                script_vuln = %s,
+                                state = %s,
+                                os_detected = %s,
+                                description = %s
+                            WHERE port = %s AND ping_id = %s
+                        """, (
+                            product, version, vuln_str, "open", os_guess, banner[:1000], port, ping_id
+                        )) 
                     conn.commit()
+                    print(f"✅ Port {port} enregistré pour target={target}")
                 except Exception as e:
                     print("❌ Erreur insertion DB :", e)
                     conn.rollback()
