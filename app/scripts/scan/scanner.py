@@ -136,9 +136,16 @@ def main():
 
                     # insert minimal
                     cur.execute("""
-                        INSERT INTO scanner (port, state, ping_id, os_detected)
-                        VALUES (%s,%s,%s,%s)
-                    """, (port, "open", ping_id, os_guess))
+                        INSERT INTO scanner (port, service, state, ping_id, os_detected, description)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                    """, (
+                            port,
+                            "unknown",
+                            "open",
+                            ping_id,
+                            os_guess,
+                            None
+                        ))
                     conn.commit()
                     continue
 
