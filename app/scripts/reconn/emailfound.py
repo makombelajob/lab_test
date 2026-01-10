@@ -159,8 +159,8 @@ def main():
             else:
                 cur.execute('''
                     UPDATE reconn SET email_found = %s, user_found = %s, link_found = %s, ping_id = %s
-                    WHERE id = %s AND hostname = %s''',
-                    (all_emails_str, all_users_str, all_links_str, ping_id, user_id, target)
+                    WHERE id = %s''',
+                    (all_emails_str, all_users_str, all_links_str, ping_id, user_id)
                 )
             conn.commit()
             print(f"✅ Emails, users et liens enregistrés pour cible={base_url}")

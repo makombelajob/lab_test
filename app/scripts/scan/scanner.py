@@ -133,20 +133,6 @@ def main():
                 if not banner:
                     print("Service : Inconnu ( no banner )")
                     print("-> Impossible de chercher des CVE\n")
-
-                    # insert minimal
-                    cur.execute("""
-                        INSERT INTO scanner (port, service, state, ping_id, os_detected, description)
-                        VALUES (%s,%s,%s,%s,%s,%s)
-                    """, (
-                            port,
-                            "unknown",
-                            "open",
-                            ping_id,
-                            os_guess,
-                            None
-                        ))
-                    conn.commit()
                     continue
 
                 print(" Service :", banner)
@@ -169,12 +155,6 @@ def main():
 
                 if not product:
                     print("   → Service détecté mais version inconnue\n")
-
-                    cur.execute("""
-                        INSERT INTO scanner (port, state, ping_id, os_detected, description)
-                        VALUES (%s,%s,%s,%s,%s)
-                    """, (port, "open", ping_id, os_guess, banner[:1000]))
-                    conn.commit()
                     continue
 
                 print(f"   → Détecté : {product} {version}")
@@ -203,34 +183,62 @@ def main():
                 # =============================
                 # INSERT into DB
                 # =============================
+                # cur = conn.cursor()
+
+                # try:
+                #     cur.execute("""
+                #         INSERT INTO scanner
+                #         (port, service, version, script_vuln, state, os_detected, ping_id, description)
+                #         VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                #         ON DUPLICATE KEY UPDATE
+                #             service = VALUES(service),
+                #             version = VALUES(version),
+                #             script_vuln = VALUES(script_vuln),
+                #             state = VALUES(state),
+                #             os_detected = VALUES(os_detected),
+                #             description = VALUES(description)
+                #     """, (
+                #         port,
+                #         product,
+                #         version,
+                #         vuln_str,
+                #         "open",
+                #         os_guess,
+                #         ping_id,
+                #         banner[:1000]
+                #     ))
+
+                #     conn.commit()
+                #     print(f"✅ Port {port} enregistré / mis à jour pour {target}")
+
+                # except Exception as e:
+                #     conn.rollback()
+                #     print("❌ Erreur DB :", e)
+
+                cur = conn.cursor(dictionary=True)
                 try:
-                    cur.execute(""" SELECT * FROM scanner WHERE port = %s AND ping_id = %s """, 
-                        (port, ping_id))
+                    cur.execute(""" SELECT id FROM scanner WHERE ping_id = %s AND port = %s""", 
+                        (ping_id, port))
                     row = cur.fetchone() 
                     if row is None:
-                        cur.execute("""
+                        cur.execute('''
                             INSERT INTO scanner
-                            (port, service, version, script_vuln, state, os_detected, ping_id, description)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                        """, (
-                            port, product, version, vuln_str, "open", os_guess, ping_id, banner[:1000]
-                        ))
+                                (port, service, version, script_vuln, state, os_detected, ping_id, description)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)        
+                        ''', (port, product, version, vuln_str, "open", os_guess, ping_id, banner[:1000]))
                     else:
-                       cur.execute("""
-                            UPDATE scanner
-                            SET service = %s,
-                                version = %s,
-                                script_vuln = %s,
-                                state = %s,
-                                os_detected = %s,
-                                description = %s
-                            WHERE port = %s AND ping_id = %s
-                        """, (
-                            product, version, vuln_str, "open", os_guess, banner[:1000], port, ping_id
-                        )) 
+                        cur.execute('''UPDATE scanner SET 
+                            service = %s,
+                            version = %s,
+                            script_vuln = %s,
+                            state = %s,
+                            os_detected = %s,
+                            description = %s 
+                        WHERE ping_id = %s AND port = %s''', (product, version, vuln_str, "open", os_guess, banner[:1000], ping_id, port))
                     conn.commit()
                     print(f"✅ Port {port} enregistré pour target={target}")
-                except Exception as e:
+                        
+                except Exception as e :
                     print("❌ Erreur insertion DB :", e)
                     conn.rollback()
 
