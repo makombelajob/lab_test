@@ -1,110 +1,16 @@
-import sys, socket, ssl, time, json, re, urllib.request, urllib.parse, warnings
+import sys, socket, ssl, time, json, re
+import urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from scripts.db.mysql_conn import get_connection
-import warnings
-warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 # =============================
 # SSL context (safe)
 # =============================
-
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
 
 
-# =============================
-# OS FINGERPRINT ENGINE
-# =============================
-def os_http_tls_fingerprint(target):
-    score = {"Linux": 0, "Windows": 0, "BSD": 0}
-
-    # ---- HTTP & HTTPS headers
-    for proto in ["http", "https"]:
-        try:
-            r = urllib.request.urlopen(f"{proto}://{target}", timeout=6, context=ctx)
-            headers = r.headers
-            server = headers.get("Server", "").lower()
-
-            if "ubuntu" in server or "debian" in server:
-                score["Linux"] += 8
-            if "apache" in server or "nginx" in server:
-                score["Linux"] += 4
-            if "iis" in server or "microsoft" in server:
-                score["Windows"] += 10
-
-            cookies = headers.get_all("Set-Cookie") or []
-            for c in cookies:
-                c = c.lower()
-                if "asp.net" in c:
-                    score["Windows"] += 10
-                if "phpsessid" in c:
-                    score["Linux"] += 4
-        except:
-            pass
-
-    # ---- TLS fingerprint
-    try:
-        raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        raw.settimeout(5)
-        raw.connect((target, 443))
-        tls = ctx.wrap_socket(raw, server_hostname=target)
-        cipher = tls.cipher()[0]
-        tls.close()
-
-        if "ECDSA" in cipher:
-            score["Linux"] += 4
-        if "RSA" in cipher:
-            score["Windows"] += 2
-    except:
-        pass
-
-    total = sum(score.values())
-    if total == 0:
-        return "Inconnu"
-
-    os_name = max(score, key=score.get)
-    confidence = int((score[os_name] / total) * 100)
-
-    if confidence < 50:
-        return "Inconnu"
-
-    return f"{os_name} ({confidence}%)"
-
-
-# =============================
-# Banner grabber (fix HTTPS)
-# =============================
-def grab_banner(host, port):
-    try:
-        if port in (443, 8443, 9443):
-            raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            raw.settimeout(3)
-            raw.connect((host, port))
-            tls = ctx.wrap_socket(raw, server_hostname=host)
-            tls.send(b"HEAD / HTTP/1.0\r\n\r\n")
-            data = tls.recv(2048)
-            tls.close()
-            return data.decode(errors="ignore")
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(3)
-        sock.connect((host, port))
-        try:
-            data = sock.recv(2048)
-        except:
-            sock.send(b"HEAD / HTTP/1.0\r\n\r\n")
-            data = sock.recv(2048)
-        sock.close()
-        return data.decode(errors="ignore")
-
-    except:
-        return ""
-
-
-# =============================
-# MAIN
-# =============================
 def main():
     start_time = time.time()
 
@@ -142,9 +48,25 @@ def main():
     print(f"\n==== Scan de la cible {target} ======\n")
 
     # =============================
-    # OS DETECTION
+    # OS Fingerprint (simple TTL)
     # =============================
-    os_guess = os_http_tls_fingerprint(target)
+    os_guess = "Inconnu"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(3)
+        s.connect((target, 80))
+        ttl = s.getsockopt(socket.IPPROTO_IP, socket.IP_TTL)
+        s.close()
+
+        if ttl <= 64:
+            os_guess = "Linux / Unix"
+        elif ttl <= 128:
+            os_guess = "Windows"
+        else:
+            os_guess = "Routeur / BSD"
+    except:
+        pass
+
     print("====== Détection du système ======")
     print(f" OS probable : {os_guess}\n")
 
@@ -157,11 +79,11 @@ def main():
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(timeout)
-            if sock.connect_ex((target, port)) == 0:
-                sock.close()
+            result = sock.connect_ex((target, port))
+            sock.close()
+            if result == 0:
                 print(f"[+] Port ouvert : {port}")
                 return port
-            sock.close()
         except:
             pass
         return None
@@ -179,27 +101,71 @@ def main():
     print("\n======= Analyse des services =======\n")
 
     # =============================
-    # Analyse services
+    # Analyse ports
     # =============================
     for port in open_ports:
         print(f"[PORT {port}]")
+        banner = ""
 
-        banner = grab_banner(target, port)
+        # ---- TCP + lecture passive
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            sock.connect((target, port))
+            try:
+                banner = sock.recv(1024).decode(errors="ignore")
+            except:
+                pass
+
+            # ---- tentative HTTP si rien reçu
+            if not banner:
+                try:
+                    sock.send(b"HEAD / HTTP/1.0\r\n\r\n")
+                    banner = sock.recv(1024).decode(errors="ignore")
+                except:
+                    pass
+
+            sock.close()
+        except:
+            pass
+
+        # ---- tentative TLS propre (nouvelle connexion)
+        if not banner:
+            try:
+                raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                raw.settimeout(2)
+                raw.connect((target, port))
+                tls = ctx.wrap_socket(raw, server_hostname=target)
+                tls.send(b"HEAD / HTTP/1.0\r\n\r\n")
+                banner = tls.recv(1024).decode(errors="ignore")
+                tls.close()
+            except:
+                pass
 
         if not banner:
             print(" Service : Inconnu (no banner)\n")
             continue
 
         banner = banner.strip()
-        print(" Service :", banner.split("\n")[0])
+        print(" Service :", banner)
 
-        product = "unknown"
+        # =============================
+        # Detect product + version
+        # =============================
+        product = None
         version = None
 
+        # Apache / nginx style
         m1 = re.search(r"Server:\s*([A-Za-z0-9\-_]+)\/([0-9\.]+)", banner)
+
+        # FileZilla style
         m2 = re.search(r"(FileZilla Server)\s+([0-9\.]+)", banner)
+
+        # Splunk style
         m3 = re.search(r"Server:\s*(Splunkd)", banner)
-        m4 = re.search(r"SSH-[0-9.]+-([A-Za-z]+)_([0-9\.p]+)", banner)
+
+        # Fallback generic
+        m4 = re.search(r"([A-Za-z][A-Za-z0-9\-_]+)[/ ]([0-9]+\.[0-9]+)", banner)
 
         if m1:
             product, version = m1.group(1), m1.group(2)
@@ -208,7 +174,11 @@ def main():
         elif m3:
             product, version = m3.group(1), "unknown"
         elif m4:
-            product, version = "OpenSSH", m4.group(2)
+            product, version = m4.group(1), m4.group(2)
+        else:
+            # IMPORTANT : ne jamais laisser product à None
+            product = "unknown"
+            version = None
 
         if product != "unknown":
             print(f"   → Détecté : {product} {version}")
@@ -216,15 +186,18 @@ def main():
             print("   → Service détecté mais version inconnue")
 
         # =============================
-        # CVE
+        # CVE lookup
         # =============================
         vuln_list = []
-        if product != "unknown" and version and re.match(r"[0-9]", version):
+        bad = ["http", "https", "ftp", "smtp", "imap", "pop", "tcp", "udp", "rtsp"]
+
+        if product and version and product.lower() not in bad and re.match(r"[0-9]+\.[0-9]+", str(version)):
             try:
                 query = f"{product} {version}"
                 url = "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=" + urllib.parse.quote(query)
                 resp = urllib.request.urlopen(url, timeout=15)
                 data = json.loads(resp.read().decode())
+
                 for v in data.get("vulnerabilities", [])[:5]:
                     vuln_list.append(v["cve"]["id"])
             except:
@@ -233,7 +206,7 @@ def main():
         vuln_str = ", ".join(vuln_list) if vuln_list else None
 
         # =============================
-        # DB
+        # Insert / Update DB
         # =============================
         try:
             cur.execute("SELECT id FROM scanner WHERE ping_id=%s AND port=%s", (ping_id, port))
@@ -264,7 +237,8 @@ def main():
             conn.rollback()
             print("❌ DB :", e, "\n")
 
-    print(f"\nTemps d'exécution : {time.time() - start_time:.2f} secondes\n")
+    elapsed = time.time() - start_time
+    print(f"\nTemps d'exécution : {elapsed:.2f} secondes\n")
 
 
 if __name__ == "__main__":
