@@ -90,7 +90,7 @@ def os_ports_fingerprint(open_ports):
 # =============================
 def grab_banner(host, port):
     try:
-        if port in (443, 8443, 9443):
+        if port in ( 443, 8443, 9443):
             raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             raw.settimeout(3)
             raw.connect((host, port))
@@ -216,11 +216,17 @@ def main():
 
         print(f"   → Détecté : {product} {version}")
 
+                # =============================
+        # CVE lookup (ENRICHED VERSION)
         # =============================
-        # CVE lookup
-        # =============================
+
         vuln_list = []
+
+        # Protocols / generic services we ignore for CVE lookup
         bad = ["http","https","ftp","smtp","imap","pop","tcp","udp","rtsp"]
+
+        # ➕ NEW: Host risk tracking (max CVSS on this host)
+        host_risk = 0
 
         if product and version:
             if product.lower() not in bad and re.search(r"[0-9]+\.[0-9]+", str(version)):
@@ -230,13 +236,71 @@ def main():
                     resp = urllib.request.urlopen(url, timeout=15, context=ctx)
                     data = json.loads(resp.read().decode())
 
-                    for v in data.get("vulnerabilities", [])[:5]:
-                        cve = v["cve"]["id"]
-                        vuln_list.append(cve)
+                    for v in data.get("vulnerabilities", []):
+                        cve_data = v.get("cve", {})
+
+                        cve_id = cve_data.get("id")
+                        metrics = cve_data.get("metrics", {})
+
+                        cvss = 0
+                        vector = "UNKNOWN"
+
+                        # ➕ NEW: Extract CVSS v3.1 score & attack vector
+                        if "cvssMetricV31" in metrics:
+                            m = metrics["cvssMetricV31"][0]["cvssData"]
+                            cvss = m.get("baseScore", 0)
+                            vector = m.get("attackVector", "UNKNOWN")
+
+                        elif "cvssMetricV30" in metrics:
+                            m = metrics["cvssMetricV30"][0]["cvssData"]
+                            cvss = m.get("baseScore", 0)
+                            vector = m.get("attackVector", "UNKNOWN")
+
+                        # ➕ NEW: classify severity
+                        if cvss >= 9:
+                            level = "CRITICAL"
+                        elif cvss >= 7:
+                            level = "HIGH"
+                        elif cvss >= 4:
+                            level = "MEDIUM"
+                        else:
+                            level = "LOW"
+
+                        # ➕ NEW: risk score (public exposed service)
+                        risk = cvss
+
+                        # ➕ NEW: track worst risk for this host
+                        if risk > host_risk:
+                            host_risk = risk
+
+                        vuln_list.append({
+                            "id": cve_id,
+                            "cvss": cvss,
+                            "level": level,
+                            "vector": vector,
+                            "risk": risk
+                        })
+
                 except:
                     pass
 
-        vuln_str = ", ".join(vuln_list) if vuln_list else None
+        # ➕ NEW: sort CVEs by highest risk
+        vuln_list = sorted(vuln_list, key=lambda x: x["risk"], reverse=True)[:5]
+
+        # ➕ NEW: formatted string for DB storage
+        vuln_str = ", ".join([
+            f"{v['id']}({v['cvss']}|{v['level']})"
+            for v in vuln_list
+        ]) if vuln_list else None
+
+        # ➕ NEW: nice terminal display
+        if vuln_list:
+            print("   ⚠️  CVE trouvées :")
+            for v in vuln_list:
+                print(f"     - {v['id']:15}  CVSS {v['cvss']:<4}  {v['level']:<8}  Vector {v['vector']}")
+        else:
+            print("   ✓ Aucune CVE connue")
+
 
         # ======= AFFICHAGE DES CVE =======
         if vuln_list:
