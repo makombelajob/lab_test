@@ -1,12 +1,15 @@
-import sys, socket, ssl, time, json
+import sys, socket, ssl, time, json, re
 import urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from scripts.db.mysql_conn import get_connection
-import re
 
+# =============================
+# SSL context (safe)
+# =============================
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
+
 
 def main():
     start_time = time.time()
@@ -38,19 +41,19 @@ def main():
     ping_id = row["id"]
 
     start_port = 1
-    end_port = 1024
-    timeout = 5
-    max_threads = 100
+    end_port = 10000
+    timeout = 3
+    max_threads = 200
 
     print(f"\n==== Scan de la cible {target} ======\n")
 
     # =============================
-    # OS Fingerprint
+    # OS Fingerprint (simple TTL)
     # =============================
-    os_guess = None
+    os_guess = "Inconnu"
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5)
+        s.settimeout(3)
         s.connect((target, 80))
         ttl = s.getsockopt(socket.IPPROTO_IP, socket.IP_TTL)
         s.close()
@@ -61,12 +64,11 @@ def main():
             os_guess = "Windows"
         else:
             os_guess = "Routeur / BSD"
-
-        print("====== Détection du système ======")
-        print(f" OS probable : {os_guess} (TTL={ttl})\n")
     except:
-        print("====== Détection du système ======")
-        print(" OS non détectable\n")
+        pass
+
+    print("====== Détection du système ======")
+    print(f" OS probable : {os_guess}\n")
 
     # =============================
     # Scan ports
@@ -75,178 +77,169 @@ def main():
 
     def scan_port(port):
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(timeout)
-                if sock.connect_ex((target, port)) == 0:
-                    print(f"[+] Port ouvert : {port}")
-                    return port
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((target, port))
+            sock.close()
+            if result == 0:
+                print(f"[+] Port ouvert : {port}")
+                return port
         except:
             pass
         return None
 
     with ThreadPoolExecutor(max_workers=max_threads) as executor:
-        results = executor.map(scan_port, range(start_port, end_port + 1))
-
-    for p in results:
-        if p:
-            open_ports.append(p)
+        for p in executor.map(scan_port, range(start_port, end_port + 1)):
+            if p:
+                open_ports.append(p)
 
     if not open_ports:
         print("\nAucun Port ouvert")
         return
 
     print("\nPorts ouverts :", open_ports)
-    print("\n======= Analyse des services & vulnérabilités =======\n")
+    print("\n======= Analyse des services =======\n")
 
     # =============================
     # Analyse ports
     # =============================
     for port in open_ports:
+        print(f"[PORT {port}]")
+        banner = ""
+
+        # ---- TCP + lecture passive
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(2)
-                sock.connect((target, port))
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            sock.connect((target, port))
+            try:
+                banner = sock.recv(1024).decode(errors="ignore")
+            except:
+                pass
 
-                banner = ""
-
+            # ---- tentative HTTP si rien reçu
+            if not banner:
                 try:
-                    banner += sock.recv(1024).decode(errors="ignore")
+                    sock.send(b"HEAD / HTTP/1.0\r\n\r\n")
+                    banner = sock.recv(1024).decode(errors="ignore")
                 except:
                     pass
 
-                try:
-                    sock.send(b"HEAD / HTTP/1.1\r\nHost: " + target.encode() + b"\r\n\r\n")
-                    banner += sock.recv(1024).decode(errors="ignore")
-                except:
-                    pass
+            sock.close()
+        except:
+            pass
 
-                try:
-                    ssl_sock = ctx.wrap_socket(sock, server_hostname=target)
-                    ssl_sock.send(b"HEAD / HTTP/1.1\r\nHost: " + target.encode() + b"\r\n\r\n")
-                    banner += ssl_sock.recv(1024).decode(errors="ignore")
-                except:
-                    pass
+        # ---- tentative TLS propre (nouvelle connexion)
+        if not banner:
+            try:
+                raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                raw.settimeout(2)
+                raw.connect((target, port))
+                tls = ctx.wrap_socket(raw, server_hostname=target)
+                tls.send(b"HEAD / HTTP/1.0\r\n\r\n")
+                banner = tls.recv(1024).decode(errors="ignore")
+                tls.close()
+            except:
+                pass
 
-                banner = banner.strip()
+        if not banner:
+            print(" Service : Inconnu (no banner)\n")
+            continue
 
-                print(f"[PORT {port}]")
-                if not banner:
-                    print("Service : Inconnu ( no banner )")
-                    print("-> Impossible de chercher des CVE\n")
-                    continue
+        banner = banner.strip()
+        print(" Service :", banner)
 
-                print(" Service :", banner)
+        # =============================
+        # Detect product + version
+        # =============================
+        product = None
+        version = None
 
-                # =============================
-                # Detect product + version
-                # =============================
-                product = None
-                version = None
+        # Apache / nginx style
+        m1 = re.search(r"Server:\s*([A-Za-z0-9\-_]+)\/([0-9\.]+)", banner)
 
-                server_match = re.search(r"Server:\s*([A-Za-z\-]+)\/([0-9\.]+)", banner)
-                if server_match:
-                    product = server_match.group(1)
-                    version = server_match.group(2)
-                else:
-                    generic = re.search(r"([A-Za-z\-]+)[/ _]?([0-9]+\.[0-9]+)", banner)
-                    if generic:
-                        product = generic.group(1)
-                        version = generic.group(2)
+        # FileZilla style
+        m2 = re.search(r"(FileZilla Server)\s+([0-9\.]+)", banner)
 
-                if not product:
-                    print("   → Service détecté mais version inconnue\n")
-                    continue
+        # Splunk style
+        m3 = re.search(r"Server:\s*(Splunkd)", banner)
 
-                print(f"   → Détecté : {product} {version}")
+        # Fallback generic
+        m4 = re.search(r"([A-Za-z][A-Za-z0-9\-_]+)[/ ]([0-9]+\.[0-9]+)", banner)
 
-                # =============================
-                # CVE lookup
-                # =============================
-                vuln_list = []
-                bad = ["http","https","ftp","smtp","imap","pop","tcp","udp","rtsp"]
+        if m1:
+            product, version = m1.group(1), m1.group(2)
+        elif m2:
+            product, version = m2.group(1), m2.group(2)
+        elif m3:
+            product, version = m3.group(1), "unknown"
+        elif m4:
+            product, version = m4.group(1), m4.group(2)
+        else:
+            # IMPORTANT : ne jamais laisser product à None
+            product = "unknown"
+            version = None
 
-                if product.lower() not in bad and re.match(r"[0-9]+\.[0-9]+", version):
-                    try:
-                        query = f"{product} {version}"
-                        url = "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=" + urllib.parse.quote(query)
-                        resp = urllib.request.urlopen(url, timeout=15)
-                        data = json.loads(resp.read().decode())
+        if product != "unknown":
+            print(f"   → Détecté : {product} {version}")
+        else:
+            print("   → Service détecté mais version inconnue")
 
-                        for v in data.get("vulnerabilities", [])[:5]:
-                            cve = v["cve"]["id"]
-                            vuln_list.append(cve)
-                    except:
-                        pass
+        # =============================
+        # CVE lookup
+        # =============================
+        vuln_list = []
+        bad = ["http", "https", "ftp", "smtp", "imap", "pop", "tcp", "udp", "rtsp"]
 
-                vuln_str = ", ".join(vuln_list) if vuln_list else None
+        if product and version and product.lower() not in bad and re.match(r"[0-9]+\.[0-9]+", str(version)):
+            try:
+                query = f"{product} {version}"
+                url = "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=" + urllib.parse.quote(query)
+                resp = urllib.request.urlopen(url, timeout=15)
+                data = json.loads(resp.read().decode())
 
-                # =============================
-                # INSERT into DB
-                # =============================
-                # cur = conn.cursor()
+                for v in data.get("vulnerabilities", [])[:5]:
+                    vuln_list.append(v["cve"]["id"])
+            except:
+                pass
 
-                # try:
-                #     cur.execute("""
-                #         INSERT INTO scanner
-                #         (port, service, version, script_vuln, state, os_detected, ping_id, description)
-                #         VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                #         ON DUPLICATE KEY UPDATE
-                #             service = VALUES(service),
-                #             version = VALUES(version),
-                #             script_vuln = VALUES(script_vuln),
-                #             state = VALUES(state),
-                #             os_detected = VALUES(os_detected),
-                #             description = VALUES(description)
-                #     """, (
-                #         port,
-                #         product,
-                #         version,
-                #         vuln_str,
-                #         "open",
-                #         os_guess,
-                #         ping_id,
-                #         banner[:1000]
-                #     ))
+        vuln_str = ", ".join(vuln_list) if vuln_list else None
 
-                #     conn.commit()
-                #     print(f"✅ Port {port} enregistré / mis à jour pour {target}")
+        # =============================
+        # Insert / Update DB
+        # =============================
+        try:
+            cur.execute("SELECT id FROM scanner WHERE ping_id=%s AND port=%s", (ping_id, port))
+            row = cur.fetchone()
 
-                # except Exception as e:
-                #     conn.rollback()
-                #     print("❌ Erreur DB :", e)
+            if row is None:
+                cur.execute("""
+                    INSERT INTO scanner
+                    (port, service, version, script_vuln, state, os_detected, ping_id, description)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (port, product, version, vuln_str, "open", os_guess, ping_id, banner[:1000]))
+            else:
+                cur.execute("""
+                    UPDATE scanner SET
+                        service=%s,
+                        version=%s,
+                        script_vuln=%s,
+                        state=%s,
+                        os_detected=%s,
+                        description=%s
+                    WHERE ping_id=%s AND port=%s
+                """, (product, version, vuln_str, "open", os_guess, banner[:1000], ping_id, port))
 
-                cur = conn.cursor(dictionary=True)
-                try:
-                    cur.execute(""" SELECT id FROM scanner WHERE ping_id = %s AND port = %s""", 
-                        (ping_id, port))
-                    row = cur.fetchone() 
-                    if row is None:
-                        cur.execute('''
-                            INSERT INTO scanner
-                                (port, service, version, script_vuln, state, os_detected, ping_id, description)
-                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)        
-                        ''', (port, product, version, vuln_str, "open", os_guess, ping_id, banner[:1000]))
-                    else:
-                        cur.execute('''UPDATE scanner SET 
-                            service = %s,
-                            version = %s,
-                            script_vuln = %s,
-                            state = %s,
-                            os_detected = %s,
-                            description = %s 
-                        WHERE ping_id = %s AND port = %s''', (product, version, vuln_str, "open", os_guess, banner[:1000], ping_id, port))
-                    conn.commit()
-                    print(f"✅ Port {port} enregistré pour target={target}")
-                        
-                except Exception as e :
-                    print("❌ Erreur insertion DB :", e)
-                    conn.rollback()
+            conn.commit()
+            print(f"✅ Port {port} enregistré\n")
 
         except Exception as e:
-            print("  -> Erreur port", port, e)
+            conn.rollback()
+            print("❌ DB :", e, "\n")
 
     elapsed = time.time() - start_time
     print(f"\nTemps d'exécution : {elapsed:.2f} secondes\n")
+
 
 if __name__ == "__main__":
     main()

@@ -146,8 +146,8 @@ def main():
         ## Storing in dbs
         cur = conn.cursor(dictionary=True)
         try:
-            cur.execute('''SELECT ping_id FROM reconn WHERE id = %s ''',
-                (user_id,)
+            cur.execute('''SELECT id FROM reconn WHERE ping_id = %s ''',
+                (ping_id,)
             )
             row = cur.fetchone()
             if row is None :  
@@ -158,9 +158,9 @@ def main():
                 )
             else:
                 cur.execute('''
-                    UPDATE reconn SET email_found = %s, user_found = %s, link_found = %s, ping_id = %s
-                    WHERE id = %s''',
-                    (all_emails_str, all_users_str, all_links_str, ping_id, user_id)
+                    UPDATE reconn SET email_found = %s, user_found = %s, link_found = %s
+                    WHERE ping_id = %s''',
+                    (all_emails_str, all_users_str, all_links_str, ping_id)
                 )
             conn.commit()
             print(f"✅ Emails, users et liens enregistrés pour cible={base_url}")
