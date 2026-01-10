@@ -48,7 +48,9 @@ RUN python3 -m venv /opt/venv \
     requests \
     python-dotenv \
     beautifulsoup4 \
-    lxml
+    lxml \
+    pymetasploit3 \
+    pymysql
 
 # Activer le venv
 ENV PATH="/opt/venv/bin:$PATH"

@@ -21,7 +21,7 @@ class Ping
     #[ORM\Column(length: 18, nullable: true)]
     private ?string $ipAddress = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(nullable: false)]
     private ?bool $status = null;
 
     #[ORM\Column]
@@ -43,10 +43,17 @@ class Ping
     #[ORM\OneToMany(targetEntity: Scanner::class, mappedBy: 'ping')]
     private Collection $scanner;
 
+    /**
+     * @var Collection<int, Exploit>
+     */
+    #[ORM\OneToMany(targetEntity: Exploit::class, mappedBy: 'ping')]
+    private Collection $exploit;
+
     public function __construct()
     {
         $this->reconn = new ArrayCollection();
         $this->scanner = new ArrayCollection();
+        $this->exploit = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -168,6 +175,36 @@ class Ping
             // set the owning side to null (unless already changed)
             if ($scanner->getPing() === $this) {
                 $scanner->setPing(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Exploit>
+     */
+    public function getExploit(): Collection
+    {
+        return $this->exploit;
+    }
+
+    public function addExploit(Exploit $exploit): static
+    {
+        if (!$this->exploit->contains($exploit)) {
+            $this->exploit->add($exploit);
+            $exploit->setPing($this);
+        }
+
+        return $this;
+    }
+
+    public function removeExploit(Exploit $exploit): static
+    {
+        if ($this->exploit->removeElement($exploit)) {
+            // set the owning side to null (unless already changed)
+            if ($exploit->getPing() === $this) {
+                $exploit->setPing(null);
             }
         }
 
