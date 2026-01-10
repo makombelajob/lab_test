@@ -1,13 +1,12 @@
 import sys, socket, ssl, time, json, re, urllib.request, urllib.parse, warnings
 from concurrent.futures import ThreadPoolExecutor
 from scripts.db.mysql_conn import get_connection
-import warnings
+
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 # =============================
-# SSL context (safe)
+# SSL context
 # =============================
-
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
@@ -17,9 +16,9 @@ ctx.verify_mode = ssl.CERT_NONE
 # OS FINGERPRINT ENGINE
 # =============================
 def os_http_tls_fingerprint(target):
-    score = {"Linux": 0, "Windows": 0, "BSD": 0}
+    score = {"Linux": 0, "Windows": 0}
 
-    # ---- HTTP & HTTPS headers
+    # HTTP + HTTPS headers
     for proto in ["http", "https"]:
         try:
             r = urllib.request.urlopen(f"{proto}://{target}", timeout=6, context=ctx)
@@ -27,53 +26,67 @@ def os_http_tls_fingerprint(target):
             server = headers.get("Server", "").lower()
 
             if "ubuntu" in server or "debian" in server:
-                score["Linux"] += 8
+                score["Linux"] += 10
             if "apache" in server or "nginx" in server:
-                score["Linux"] += 4
+                score["Linux"] += 5
             if "iis" in server or "microsoft" in server:
-                score["Windows"] += 10
+                score["Windows"] += 15
 
             cookies = headers.get_all("Set-Cookie") or []
             for c in cookies:
                 c = c.lower()
                 if "asp.net" in c:
-                    score["Windows"] += 10
+                    score["Windows"] += 15
                 if "phpsessid" in c:
-                    score["Linux"] += 4
+                    score["Linux"] += 5
         except:
             pass
 
-    # ---- TLS fingerprint
+    # TLS cipher
     try:
         raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        raw.settimeout(5)
+        raw.settimeout(4)
         raw.connect((target, 443))
         tls = ctx.wrap_socket(raw, server_hostname=target)
         cipher = tls.cipher()[0]
         tls.close()
 
         if "ECDSA" in cipher:
-            score["Linux"] += 4
+            score["Linux"] += 5
         if "RSA" in cipher:
-            score["Windows"] += 2
+            score["Windows"] += 3
     except:
         pass
 
     total = sum(score.values())
     if total == 0:
-        return "Inconnu"
+        return None
 
     os_name = max(score, key=score.get)
     confidence = int((score[os_name] / total) * 100)
 
-    if confidence < 50:
-        return "Inconnu"
+    if confidence < 40:
+        return None
 
     return f"{os_name} ({confidence}%)"
 
 
+def os_ports_fingerprint(open_ports):
+    windows_ports = {135, 139, 445, 3389, 2179, 5800, 5900, 5040}
+    linux_ports = {22, 111, 631, 2049, 5432}
+
+    win_score = len(windows_ports.intersection(open_ports))
+    linux_score = len(linux_ports.intersection(open_ports))
+
+    if win_score > linux_score:
+        return f"Windows (ports:{win_score})"
+    if linux_score > win_score:
+        return f"Linux (ports:{linux_score})"
+    return None
+
+
 # =============================
-# Banner grabber (fix HTTPS)
+# Banner grabber
 # =============================
 def grab_banner(host, port):
     try:
@@ -97,7 +110,6 @@ def grab_banner(host, port):
             data = sock.recv(2048)
         sock.close()
         return data.decode(errors="ignore")
-
     except:
         return ""
 
@@ -110,16 +122,13 @@ def main():
 
     if len(sys.argv) < 3:
         print("Usage : python scanner.py <user_id> <hostname|ip>")
-        sys.exit(0)
+        return
 
     user_id, target = sys.argv[1], sys.argv[2]
 
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
 
-    # =======================
-    # Get ping_id
-    # =======================
     cur.execute("""
         SELECT id FROM ping
         WHERE user_id=%s AND ip_address=%s
@@ -129,140 +138,104 @@ def main():
 
     row = cur.fetchone()
     if not row:
-        print("❌ Aucun ping trouvé pour cette cible")
+        print("❌ Aucun ping trouvé")
         return
 
     ping_id = row["id"]
 
-    start_port = 1
-    end_port = 10000
-    timeout = 3
-    max_threads = 200
-
     print(f"\n==== Scan de la cible {target} ======\n")
 
-    # =============================
-    # OS DETECTION
-    # =============================
-    os_guess = os_http_tls_fingerprint(target)
-    print("====== Détection du système ======")
-    print(f" OS probable : {os_guess}\n")
-
-    # =============================
+    # ---------------------------
     # Scan ports
-    # =============================
+    # ---------------------------
     open_ports = []
+    timeout = 2
 
     def scan_port(port):
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(timeout)
-            if sock.connect_ex((target, port)) == 0:
-                sock.close()
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            if s.connect_ex((target, port)) == 0:
+                s.close()
                 print(f"[+] Port ouvert : {port}")
                 return port
-            sock.close()
+            s.close()
         except:
             pass
         return None
 
-    with ThreadPoolExecutor(max_workers=max_threads) as executor:
-        for p in executor.map(scan_port, range(start_port, end_port + 1)):
+    with ThreadPoolExecutor(max_workers=200) as exe:
+        for p in exe.map(scan_port, range(1, 10001)):
             if p:
                 open_ports.append(p)
 
-    if not open_ports:
-        print("\nAucun Port ouvert")
-        return
-
     print("\nPorts ouverts :", open_ports)
-    print("\n======= Analyse des services =======\n")
 
-    # =============================
-    # Analyse services
-    # =============================
+    # ---------------------------
+    # OS detection
+    # ---------------------------
+    os_guess = os_http_tls_fingerprint(target)
+    os_ports = os_ports_fingerprint(open_ports)
+
+    if os_ports:
+        os_guess = os_ports if not os_guess else os_guess + " + " + os_ports
+    if not os_guess:
+        os_guess = "Inconnu"
+
+    print("\n====== Détection du système ======")
+    print(f" OS probable : {os_guess}\n")
+
+    # ---------------------------
+    # Services
+    # ---------------------------
+    print("======= Analyse des services =======\n")
+
     for port in open_ports:
         print(f"[PORT {port}]")
 
         banner = grab_banner(target, port)
-
         if not banner:
             print(" Service : Inconnu (no banner)\n")
             continue
 
-        banner = banner.strip()
         print(" Service :", banner.split("\n")[0])
 
         product = "unknown"
         version = None
 
-        m1 = re.search(r"Server:\s*([A-Za-z0-9\-_]+)\/([0-9\.]+)", banner)
-        m2 = re.search(r"(FileZilla Server)\s+([0-9\.]+)", banner)
-        m3 = re.search(r"Server:\s*(Splunkd)", banner)
-        m4 = re.search(r"SSH-[0-9.]+-([A-Za-z]+)_([0-9\.p]+)", banner)
+        if "OpenSSH" in banner:
+            m = re.search(r"OpenSSH[_ ]([0-9\.p]+)", banner)
+            if m:
+                product, version = "OpenSSH", m.group(1)
 
-        if m1:
-            product, version = m1.group(1), m1.group(2)
-        elif m2:
-            product, version = m2.group(1), m2.group(2)
-        elif m3:
-            product, version = m3.group(1), "unknown"
-        elif m4:
-            product, version = "OpenSSH", m4.group(2)
+        m = re.search(r"Server:\s*([A-Za-z0-9\-_]+)\/([0-9\.]+)", banner)
+        if m:
+            product, version = m.group(1), m.group(2)
 
-        if product != "unknown":
-            print(f"   → Détecté : {product} {version}")
-        else:
-            print("   → Service détecté mais version inconnue")
+        print(f"   → Détecté : {product} {version}")
 
-        # =============================
-        # CVE
-        # =============================
-        vuln_list = []
-        if product != "unknown" and version and re.match(r"[0-9]", version):
-            try:
-                query = f"{product} {version}"
-                url = "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=" + urllib.parse.quote(query)
-                resp = urllib.request.urlopen(url, timeout=15)
-                data = json.loads(resp.read().decode())
-                for v in data.get("vulnerabilities", [])[:5]:
-                    vuln_list.append(v["cve"]["id"])
-            except:
-                pass
-
-        vuln_str = ", ".join(vuln_list) if vuln_list else None
-
-        # =============================
-        # DB
-        # =============================
         try:
             cur.execute("SELECT id FROM scanner WHERE ping_id=%s AND port=%s", (ping_id, port))
             row = cur.fetchone()
 
-            if row is None:
+            if row:
                 cur.execute("""
-                    INSERT INTO scanner
-                    (port, service, version, script_vuln, state, os_detected, ping_id, description)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                """, (port, product, version, vuln_str, "open", os_guess, ping_id, banner[:1000]))
+                    UPDATE scanner SET service=%s, version=%s, state='open',
+                    os_detected=%s, description=%s
+                    WHERE ping_id=%s AND port=%s
+                """, (product, version, os_guess, banner[:1000], ping_id, port))
             else:
                 cur.execute("""
-                    UPDATE scanner SET
-                        service=%s,
-                        version=%s,
-                        script_vuln=%s,
-                        state=%s,
-                        os_detected=%s,
-                        description=%s
-                    WHERE ping_id=%s AND port=%s
-                """, (product, version, vuln_str, "open", os_guess, banner[:1000], ping_id, port))
+                    INSERT INTO scanner
+                    (port, service, version, state, os_detected, ping_id, description)
+                    VALUES (%s,%s,%s,'open',%s,%s,%s)
+                """, (port, product, version, os_guess, ping_id, banner[:1000]))
 
             conn.commit()
-            print(f"✅ Port {port} enregistré\n")
-
+            print("✅ Enregistré\n")
         except Exception as e:
             conn.rollback()
-            print("❌ DB :", e, "\n")
+            print("❌ DB:", e)
 
     print(f"\nTemps d'exécution : {time.time() - start_time:.2f} secondes\n")
 
