@@ -55,8 +55,8 @@ body {
    ============================================ */
 .feature-card {
     transition:
-            transform 0.3s ease,
-            box-shadow 0.3s ease;
+        transform 0.3s ease,
+        box-shadow 0.3s ease;
     border: none;
     border-radius: 10px;
     height: 100%;
@@ -137,6 +137,19 @@ body {
 /* ============================================
    PROFILE PAGE LAYOUT
    ============================================ */
+#load-timer {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 14px;
+    border-radius: 8px;
+    z-index: 9999;
+}
+
 .scan-container {
     display: flex;
     min-height: calc(100vh - 200px);
@@ -186,7 +199,8 @@ body {
     margin: 5px 0;
 }
 
-.nav-link, .nav-logout {
+.nav-link,
+.nav-logout {
     display: flex;
     align-items: center;
     padding: 12px 20px;
@@ -196,18 +210,21 @@ body {
     border-left: 3px solid transparent;
 }
 
-.nav-link i, .nav-logout i {
+.nav-link i,
+.nav-logout i {
     font-size: 1.2rem;
     margin-right: 12px;
     width: 24px;
     text-align: center;
 }
 
-.nav-link span, .nav-logout span {
+.nav-link span,
+.nav-logout span {
     font-weight: 500;
 }
 
-.nav-link:hover, .nav-logout:hover {
+.nav-link:hover,
+.nav-logout:hover {
     background-color: rgba(255, 255, 255, 0.1);
     color: white;
     border-left-color: var(--highlight-color);
@@ -230,44 +247,44 @@ body {
 }
 
 .content-section {
-   display: none;
-   animation: fadeIn 0.3s ease !important;
+    display: none;
+    animation: fadeIn 0.3s ease !important;
 }
 
 .content-section.active {
-   display: block;
+    display: block;
 }
 
 @keyframes fadeIn {
-   from {
-       opacity: 0;
-       transform: translateY(10px);
-   }
-   to {
-       opacity: 1;
-       transform: translateY(0);
-   }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .section-header {
-   margin-bottom: 30px;
-   padding-bottom: 20px;
-   border-bottom: 2px solid var(--border-color);
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
 }
 
 .section-title {
-   font-size: 2rem;
-   font-weight: 700;
-   color: var(--primary-color);
-   margin-bottom: 10px;
-   display: flex;
-   align-items: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
 }
 
 .section-description {
-   color: var(--text-muted);
-   font-size: 1rem;
-   margin: 0;
+    color: var(--text-muted);
+    font-size: 1rem;
+    margin: 0;
 }
 
 /* ============================================
@@ -313,8 +330,8 @@ body {
     border: 2px solid var(--border-color);
     border-radius: 5px;
     transition:
-            border-color 0.3s ease,
-            box-shadow 0.3s ease;
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
     font-family: inherit;
 }
 
@@ -367,7 +384,7 @@ body {
     padding: 20px;
     overflow-x: auto;
     min-height: 200px;
-    color : white !important;
+    color: white !important;
 }
 
 .ping-output {
@@ -376,7 +393,7 @@ body {
     font-size: 0.9rem;
     line-height: 1.6;
     margin: 0;
-    padding: 5px 10px;       /* <- espace intérieur du bloc */
+    padding: 5px 10px; /* <- espace intérieur du bloc */
     white-space: pre-wrap;
     word-wrap: break-word;
     display: block;
@@ -412,7 +429,8 @@ body {
         white-space: nowrap;
     }
 
-    .nav-link, .nav-logout {
+    .nav-link,
+    .nav-logout {
         padding: 10px 15px;
         border-left: none;
         border-bottom: 3px solid transparent;

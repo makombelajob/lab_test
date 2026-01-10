@@ -57,8 +57,11 @@ final class PingController extends AbstractController
             /**
              * Construct python command
              */
-
-            $userId = $this->getUser()->getId();
+            /**
+             *  @var \App\Entity\User $user
+             */
+            $user = $this->getUser();
+            $userId = $user->getId();
             $pyBin = '/opt/venv/bin/python3';
             $pyModule = 'scripts.ping.pingtarget';
             $projectRoot = $this->getParameter('kernel.project_dir');

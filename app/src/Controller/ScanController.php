@@ -36,7 +36,7 @@ final class ScanController extends AbstractController
                 $userId = $user->getId();
 
                 $result = $pythonRunner->run(
-                    'scripts/scan/scanner.py',
+                    'scripts/scanner/scanner.py',
                     $userId,
                     $ipTarget
                 );

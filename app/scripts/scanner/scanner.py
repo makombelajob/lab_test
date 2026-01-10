@@ -203,33 +203,67 @@ def main():
         product = "unknown"
         version = None
 
+        # Détection OpenSSH
         if "OpenSSH" in banner:
             m = re.search(r"OpenSSH[_ ]([0-9\.p]+)", banner)
             if m:
                 product, version = "OpenSSH", m.group(1)
 
+        # Détection Server: product/version
         m = re.search(r"Server:\s*([A-Za-z0-9\-_]+)\/([0-9\.]+)", banner)
         if m:
             product, version = m.group(1), m.group(2)
 
         print(f"   → Détecté : {product} {version}")
 
+        # =============================
+        # CVE lookup
+        # =============================
+        vuln_list = []
+        bad = ["http","https","ftp","smtp","imap","pop","tcp","udp","rtsp"]
+
+        if product and version:
+            if product.lower() not in bad and re.search(r"[0-9]+\.[0-9]+", str(version)):
+                try:
+                    query = f"{product} {version}"
+                    url = "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=" + urllib.parse.quote(query)
+                    resp = urllib.request.urlopen(url, timeout=15, context=ctx)
+                    data = json.loads(resp.read().decode())
+
+                    for v in data.get("vulnerabilities", [])[:5]:
+                        cve = v["cve"]["id"]
+                        vuln_list.append(cve)
+                except:
+                    pass
+
+        vuln_str = ", ".join(vuln_list) if vuln_list else None
+
+        # ======= AFFICHAGE DES CVE =======
+        if vuln_list:
+            print("   ⚠️  CVE trouvées :")
+            for cve in vuln_list:
+                print("     -", cve)
+        else:
+            print("   ✓ Aucune CVE connue")
+        # =============================
+        # INSERT / UPDATE DB
+        # =============================
         try:
-            cur.execute("SELECT id FROM scanner WHERE ping_id=%s AND port=%s", (ping_id, port))
+            cur.execute(""" SELECT id FROM scanner WHERE ping_id=%s AND port=%s """, (ping_id, port))
             row = cur.fetchone()
 
             if row:
                 cur.execute("""
-                    UPDATE scanner SET service=%s, version=%s, state='open',
+                    UPDATE scanner SET service=%s, version=%s, script_vuln=%s, state='open',
                     os_detected=%s, description=%s
                     WHERE ping_id=%s AND port=%s
-                """, (product, version, os_guess, banner[:1000], ping_id, port))
+                """, (product, version, vuln_str, os_guess, banner[:1000], ping_id, port))
             else:
                 cur.execute("""
                     INSERT INTO scanner
-                    (port, service, version, state, os_detected, ping_id, description)
-                    VALUES (%s,%s,%s,'open',%s,%s,%s)
-                """, (port, product, version, os_guess, ping_id, banner[:1000]))
+                    (port, service, version, script_vuln, state, os_detected, ping_id, description)
+                    VALUES (%s,%s,%s,%s,'open',%s,%s,%s)
+                """, (port, product, version, vuln_str, os_guess, ping_id, banner[:1000]))
 
             conn.commit()
             print("✅ Enregistré\n")

@@ -2,7 +2,9 @@
 
 {% block title %}Reconnaissance
 {% endblock %}
-
+{% block javascripts %}
+	<script src="{{ asset('js/directTimer.js') }}" defer></script>
+{% endblock %}
 {% block body %}
 	<div class="scan-container">
 		{% include '_partials/_aside.html.twig' %}
@@ -28,7 +30,7 @@
 				{% for message in app.flashes('danger') %}
 					<div class="alert alert-danger">{{ message }}</div>
 				{% endfor %}
-
+				<div id="load-timer"></div>
 				<!-- Résultats du script -->
 				{% if showResult %}
 					<div id="ping-results" class="ping-results">
