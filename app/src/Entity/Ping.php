@@ -54,6 +54,7 @@ class Ping
         $this->reconn = new ArrayCollection();
         $this->scanner = new ArrayCollection();
         $this->exploit = new ArrayCollection();
+        $this->scanAt = new \DateTimeImmutable();
     }
 
     public function getId(): ?int

@@ -1,4 +1,4 @@
-import sys, subprocess, ipaddress, socket
+import sys, subprocess, ipaddress, socket, json
 from scripts.db.mysql_conn import get_connection
 
 def is_ip(value):
@@ -12,12 +12,16 @@ def is_ip(value):
 def resolve_host_ip(host):
     try:
         if is_ip(host):
-            return socket.gethostbyaddr(host)[0], host
+            hostname = socket.gethostbyaddr(host)[0]
+            return hostname, host
         else:
-            return host, socket.gethostbyname(host)
+            ip = socket.gethostbyname(host)
+            return host, ip
     except (socket.herror, socket.gaierror):
-        return (host if not is_ip(host) else None,
-                host if is_ip(host) else None)
+        if is_ip(host) :
+            return None, host
+        else:
+            return host, None
 
 
 def do_ping(host, count=3):
@@ -73,20 +77,31 @@ def main():
     final_hostname = resolved_hostname if resolved_hostname else None
     final_ip = resolved_ip if resolved_ip else None
 
-    # 🔥 IMPORTANT: Always INSERT a new ping row (never UPDATE)
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO ping (user_id, hostname, ip_address, status, scan_at)
-            VALUES (%s, %s, %s, %s, NOW())
-        """, (
-            user_id,
-            final_hostname,
-            final_ip,
-            status
-        ))
-        conn.commit()
+    ping_data = {
+        "hostname": final_hostname,
+        "ipAddress": final_ip,
+        "status": status,
+        "user_id": user_id,
+    }
 
-    conn.close()
+    # Marqueur JSON pour Symfony
+    print("\n@@@PINGJSON@@@")
+    print(json.dumps(ping_data))
+    #print(json.dumps(ping_data))
+    # 🔥 IMPORTANT: Always INSERT a new ping row (never UPDATE)
+    # with conn.cursor() as cur:
+    #     cur.execute("""
+    #         INSERT INTO ping (user_id, hostname, ip_address, status)
+    #         VALUES (%s, %s, %s, %s)
+    #     """, (
+    #         user_id,
+    #         resolved_hostname,
+    #         resolved_ip,
+    #         status
+    #     ))
+    #     conn.commit()
+
+    # conn.close()
 
 
 if __name__ == "__main__":

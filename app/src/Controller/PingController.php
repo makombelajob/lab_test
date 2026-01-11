@@ -15,65 +15,39 @@ final class PingController extends AbstractController
     #[Route('/ping', name: 'app_ping')]
     public function index(Request $request, EntityManagerInterface $entity): Response
     {
-        // Only connected user can scan
         $this->denyAccessUnlessGranted('ROLE_USER');
 
-        // New ping scan
         $ping = new Ping();
         $form = $this->createForm(PingType::class, $ping);
         $form->handleRequest($request);
 
-        // Set session for python output
         $session = $request->getSession();
         $output = $session->get('python_output', null);
-        // Remove output after refresh
         $session->remove('python_output');
 
-        // Verify the form input content
         if ($form->isSubmitted() && $form->isValid()) {
 
             $target = $form->get('hostname')->getData();
 
-            // Cas 1️⃣ : l'utilisateur a saisi une IP
-            if (filter_var($target, FILTER_VALIDATE_IP)) {
-                $ping->setIpAddress($target);
-                $ping->setHostname(null);
-            }
-            // Cas 2️⃣ : l'utilisateur a saisi un domaine
-            else {
-                $ping->setHostname($target);
-                $ping->setIpAddress(null);
-            }
-
-            // 3️⃣ Date automatique (si pas déjà fait)
-            $ping->setScanAt(new \DateTimeImmutable());
-
-            $ping->setUser($this->getUser());
-
-            // 5️⃣ Sauvegarde
-            $entity->persist($ping);
-            $entity->flush();
-
             /**
-             * Construct python command
-             */
-            /**
-             *  @var \App\Entity\User $user
+             * @var \App\Entity\User $user
              */
             $user = $this->getUser();
             $userId = $user->getId();
+
             $pyBin = '/opt/venv/bin/python3';
             $pyModule = 'scripts.ping.pingtarget';
             $projectRoot = $this->getParameter('kernel.project_dir');
 
-            ## Verification of python file
             if (!file_exists($pyBin)) {
-                return new Response("🤦‍♂️ Python env Not found !");
+                return new Response("Python env not found");
             }
 
             if (!is_dir($projectRoot . '/scripts')) {
-                return new Response("🤦‍♂️ Python scripts directory not found !");
+                return new Response("Python scripts directory not found");
             }
+
+            // Commande Python
             $command = sprintf(
                 'cd %s && %s -m %s %d %s 2>&1',
                 escapeshellarg($projectRoot),
@@ -83,15 +57,48 @@ final class PingController extends AbstractController
                 escapeshellarg($target)
             );
 
+            // Récupération de la sortie Python
             $output = shell_exec($command);
-            // Save the python output
-            $session->set('python_output', $output);
 
-            $this->addFlash('success', 'Ping exécuté et maintenant vous devez cliquer sur reconn et attendre environ 30 secondes pour retrouver les liens et mails');
+            // Séparation texte ping (UI) et ping_data pour DB
+            $parts = explode("\n@@@PINGJSON@@@\n", $output);
+
+            if (count($parts) !== 2) {
+                return new Response("<pre>Python output:\n" . htmlspecialchars($output) . "</pre>");
+            }
+
+            $uiOutput = $parts[0];       // texte pour l’affichage
+            $jsonData = trim($parts[1]); // ping_data pour la DB
+
+            $data = json_decode($jsonData, true);
+            if (!$data) {
+                return new Response("<pre>Invalid Python JSON:\n" . htmlspecialchars($jsonData) . "</pre>");
+            }
+
+            // Stockage dans l’entité Ping
+            $ping->setHostname($data['hostname'] ?? null);
+            $ping->setIpAddress($data['ipAddress'] ?? null);
+            $ping->setStatus(isset($data['status']) ? (bool)$data['status'] : null);
+            $ping->setScanAt(new \DateTimeImmutable());
+            $ping->setUser($user);
+
+            $entity->persist($ping);
+            $entity->flush();
+
+            // Texte du ping pour l’UI
+            $session->set('python_output', $uiOutput);
+
+            $this->addFlash(
+                'success',
+                'Ping exécuté. Cliquez sur Reconn dans 30 secondes.'
+            );
 
             return $this->redirectToRoute('app_ping');
         }
 
-        return $this->render('ping/index.html.twig', ['form' => $form->createView(), 'output' => $output]);
+        return $this->render('ping/index.html.twig', [
+            'form' => $form->createView(),
+            'output' => $output
+        ]);
     }
 }
