@@ -21,7 +21,7 @@ class Ping
     #[ORM\Column(length: 18, nullable: true)]
     private ?string $ipAddress = null;
 
-    #[ORM\Column(nullable: false)]
+    #[ORM\Column(nullable: true)]
     private ?bool $status = null;
 
     #[ORM\Column]
