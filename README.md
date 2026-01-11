@@ -1,8 +1,8 @@
-# PentestLab PI - Application Web Symfony + Python
+# Lab-Test - Application Web Symfony + Python
 
 ## 📋 Description
 
-PentestLab PI est une application web hybride développée avec **Symfony 7.4** et **Python 3**, conçue pour la gestion d'un laboratoire de tests de pénétration. L'application combine la puissance du framework PHP Symfony pour la partie web et des scripts Python pour les opérations de traitement de données et d'interaction avec la base de données.
+Lab-Test est une application web hybride développée avec **Symfony 7.4** et **Python 3**, conçue pour la gestion d'un laboratoire de tests de pénétration. L'application combine la puissance du framework PHP Symfony pour la partie web et des scripts Python pour les opérations de traitement de données et d'interaction avec la base de données.
 
 ## 🏗️ Architecture
 
@@ -20,7 +20,7 @@ PentestLab PI est une application web hybride développée avec **Symfony 7.4** 
 ### Structure du Projet
 
 ```
-pentestlab-pi/
+lab_test/
 ├── app/                          # Application Symfony principale
 │   ├── src/
 │   │   ├── Controller/          # Contrôleurs Symfony
@@ -30,9 +30,13 @@ pentestlab-pi/
 │   ├── templates/               # Templates Twig
 │   ├── scripts/                 # Scripts Python
 │   │   ├── db/
-│   │   │   └── mysql.py        # Module de connexion MySQL
-│   │   ├── import_test.py       # Script de test d'import
-│   │   └── test.py              # Script de test
+│   │   │   └── mysql.py         # Module de connexion MySQL
+│   │   ├── attack_chains/       # dossier de fichier d'exploit
+|   |   |   └── apache.py        # fichier d'exploit apache
+|   |   |   └── ssh.py           # fichier d'exploit ssh
+│   │   └── engine /             
+|   |   |   └── attack_chain.py    # Moteur d'attack chain
+|   |   |   └── exploit_engine.py  # moteur d'exploit chain
 │   ├── config/                  # Configuration Symfony
 │   ├── public/                  # Point d'entrée public
 │   └── migrations/              # Migrations Doctrine
@@ -57,6 +61,7 @@ L'application utilise le composant **Symfony shell_exec** pour exécuter des scr
     - `requests` : Requêtes HTTP
     - `python-dotenv` : Gestion des variables d'environnement
     - `BeautifulSoup` : La bonne lecture des pages html
+    - `pymetasploit3` : Pour l'exploitation de vulnéraiblités
 
 3. **Connexion à la base de données** : Les scripts Python utilisent le module `db/mysql_conn.py` qui :
     - Stock les variables d'environnement `DATABASE_URL` ou utilise des variables individuelles
