@@ -21,9 +21,9 @@ jobs:
       - name: Sync files via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
-          server: ${{ secrets.FTP_HOST }}          # fille.o2switch.net
-          username: ${{ secrets.FTP_USERNAME }}    # ruro5549
-          password: ${{ secrets.FTP_PASSWORD }}    # ton mot de passe
+          server: ${{ secrets.FTP_HOST }}          
+          username: ${{ secrets.FTP_USERNAME }}    
+          password: ${{ secrets.FTP_PASSWORD }}    
           protocol: ftps                           # FTPS explicite
           port: 21                                 # Port FTP standard
           local-dir: ./app/                        # chemin relatif dans le repo
@@ -32,4 +32,3 @@ jobs:
             **/.git*
             **/node_modules/*
           dry-run: false
-          verbose: true
