@@ -70,7 +70,7 @@ L'application utilise le composant **Symfony shell_exec** pour exécuter des scr
 
 4. **Flux de données** :
    ```
-   Utilisateur → Symfony Controller → Process Python → MySQL
+   Utilisateur → Process Python → Symfony Controller  → MySQL
                                     ↓
                               Retour JSON/String
                                     ↓
