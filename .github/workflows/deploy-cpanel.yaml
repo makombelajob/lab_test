@@ -14,8 +14,7 @@ jobs:
       # 2️⃣ Étape de build (si nécessaire)
       - name: Build (si nécessaire)
         run: |
-          # Ajoutez vos commandes de build ici si besoin
-          echo "Aucune étape de build configurée"
+          composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis
 
       # 3️⃣ Synchronisation des fichiers via FTPS
       - name: Sync files via FTPS
