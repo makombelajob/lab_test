@@ -34,7 +34,7 @@ class Scanner
     #[ORM\Column(length: 7)]
     private ?string $state = null;
 
-    #[ORM\Column(length: 30, nullable: true)]
+    #[ORM\Column(length: 150, nullable: true)]
     private ?string $osDetected = null;
 
     #[ORM\ManyToOne(inversedBy: 'scanner')]

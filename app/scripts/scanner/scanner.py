@@ -1,6 +1,8 @@
 import sys, socket, ssl, time, json, re, urllib.request, urllib.parse, warnings
 from concurrent.futures import ThreadPoolExecutor
 from scripts.db.mysql_conn import get_connection
+sys.stdout.reconfigure(line_buffering=True)
+
 
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
@@ -18,7 +20,6 @@ ctx.verify_mode = ssl.CERT_NONE
 def os_http_tls_fingerprint(target):
     score = {"Linux": 0, "Windows": 0}
 
-    # HTTP + HTTPS headers
     for proto in ["http", "https"]:
         try:
             r = urllib.request.urlopen(f"{proto}://{target}", timeout=6, context=ctx)
@@ -42,7 +43,6 @@ def os_http_tls_fingerprint(target):
         except:
             pass
 
-    # TLS cipher
     try:
         raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         raw.settimeout(4)
@@ -90,7 +90,7 @@ def os_ports_fingerprint(open_ports):
 # =============================
 def grab_banner(host, port):
     try:
-        if port in ( 443, 8443, 9443):
+        if port in (443, 8443, 9443):
             raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             raw.settimeout(3)
             raw.connect((host, port))
@@ -182,6 +182,10 @@ def main():
     if not os_guess:
         os_guess = "Inconnu"
 
+    windows_core_ports = {135, 139, 445, 5985}
+    if windows_core_ports.intersection(open_ports):
+        os_guess = "Windows (system ports detected)"
+
     print("\n====== Détection du système ======")
     print(f" OS probable : {os_guess}\n")
 
@@ -190,6 +194,7 @@ def main():
     # ---------------------------
     print("======= Analyse des services =======\n")
 
+    scanner_rows = []
     for port in open_ports:
         print(f"[PORT {port}]")
 
@@ -200,33 +205,78 @@ def main():
 
         print(" Service :", banner.split("\n")[0])
 
+        # =============================
+        # SERVICE DETECTION (CORRIGÉ)
+        # =============================
         product = "unknown"
         version = None
+        b = banner.lower()
 
-        # Détection OpenSSH
-        if "OpenSSH" in banner:
+        # OpenSSH
+        if "openssh" in b:
             m = re.search(r"OpenSSH[_ ]([0-9\.p]+)", banner)
             if m:
                 product, version = "OpenSSH", m.group(1)
 
-        # Détection Server: product/version
-        m = re.search(r"Server:\s*([A-Za-z0-9\-_]+)\/([0-9\.]+)", banner)
-        if m:
-            product, version = m.group(1), m.group(2)
+        # FTP (robuste)
+        if port == 21:
+            if "pure-ftpd" in b:
+                product = "Pure-FTPd"
+                version = None
+
+            elif "filezilla server" in b:
+                product = "FileZilla Server"
+                m = re.search(r"FileZilla Server\s*([0-9\.]+(?:\s*beta)?)", banner, re.I)
+                version = m.group(1) if m else None
+
+            elif "vsftpd" in b:
+                product = "vsftpd"
+                m = re.search(r"vsftpd\s*([0-9\.]+)", banner, re.I)
+                version = m.group(1) if m else None
+
+            elif "proftpd" in b:
+                product = "ProFTPD"
+                m = re.search(r"ProFTPD\s*([0-9\.]+)", banner, re.I)
+                version = m.group(1) if m else None
+
+        # SMTP (Exim)
+        if port in (25, 26, 465, 587):
+            if "exim" in b:
+                product = "Exim"
+                m = re.search(r"Exim\s+([0-9\.]+)", banner, re.I)
+                version = m.group(1) if m else None
+
+        # HTTP
+        m = re.search(r"Server:\s*([^\r\n]+)", banner, re.IGNORECASE)
+        if m and product == "unknown":
+            server_line = m.group(1)
+            m2 = re.search(r"([A-Za-z\-]+)[/ ]([0-9\.]+)", server_line)
+            product = m2.group(1) if m2 else server_line.strip()
+            version = m2.group(2) if m2 else None
+
+        # MySQL
+        if port == 3306:
+            product = "MySQL"
+
+        # SMB
+        if port in (139, 445):
+            product = "SMB"
+
+        # FTPS
+        if port == 990:
+            product = "FTPS"
+
+        # WinRM
+        if port == 5985:
+            product = "WinRM"
 
         print(f"   → Détecté : {product} {version}")
 
-                # =============================
-        # CVE lookup (ENRICHED VERSION)
         # =============================
-
+        # CVE lookup (inchangé)
+        # =============================
         vuln_list = []
-
-        # Protocols / generic services we ignore for CVE lookup
         bad = ["http","https","ftp","smtp","imap","pop","tcp","udp","rtsp"]
-
-        # ➕ NEW: Host risk tracking (max CVSS on this host)
-        host_risk = 0
 
         if product and version:
             if product.lower() not in bad and re.search(r"[0-9]+\.[0-9]+", str(version)):
@@ -238,82 +288,46 @@ def main():
 
                     for v in data.get("vulnerabilities", []):
                         cve_data = v.get("cve", {})
-
-                        cve_id = cve_data.get("id")
                         metrics = cve_data.get("metrics", {})
-
                         cvss = 0
-                        vector = "UNKNOWN"
 
-                        # ➕ NEW: Extract CVSS v3.1 score & attack vector
                         if "cvssMetricV31" in metrics:
-                            m = metrics["cvssMetricV31"][0]["cvssData"]
-                            cvss = m.get("baseScore", 0)
-                            vector = m.get("attackVector", "UNKNOWN")
-
+                            cvss = metrics["cvssMetricV31"][0]["cvssData"].get("baseScore", 0)
                         elif "cvssMetricV30" in metrics:
-                            m = metrics["cvssMetricV30"][0]["cvssData"]
-                            cvss = m.get("baseScore", 0)
-                            vector = m.get("attackVector", "UNKNOWN")
+                            cvss = metrics["cvssMetricV30"][0]["cvssData"].get("baseScore", 0)
 
-                        # ➕ NEW: classify severity
-                        if cvss >= 9:
-                            level = "CRITICAL"
-                        elif cvss >= 7:
-                            level = "HIGH"
-                        elif cvss >= 4:
-                            level = "MEDIUM"
-                        else:
-                            level = "LOW"
-
-                        # ➕ NEW: risk score (public exposed service)
-                        risk = cvss
-
-                        # ➕ NEW: track worst risk for this host
-                        if risk > host_risk:
-                            host_risk = risk
-
-                        vuln_list.append({
-                            "id": cve_id,
-                            "cvss": cvss,
-                            "level": level,
-                            "vector": vector,
-                            "risk": risk
-                        })
-
+                        vuln_list.append({"id": cve_data.get("id"), "cvss": cvss})
                 except:
                     pass
 
-        # ➕ NEW: sort CVEs by highest risk
-        vuln_list = sorted(vuln_list, key=lambda x: x["risk"], reverse=True)[:5]
-
-        # ➕ NEW: formatted string for DB storage
-        vuln_str = ", ".join([
-            f"{v['id']}({v['cvss']}|{v['level']})"
-            for v in vuln_list
-        ]) if vuln_list else None
-
-        # ➕ NEW: nice terminal display
         if vuln_list:
-            print("   ⚠️  CVE trouvées :")
-            for v in vuln_list:
-                print(f"     - {v['id']:15}  CVSS {v['cvss']:<4}  {v['level']:<8}  Vector {v['vector']}")
+            print("   ⚠️  CVE trouvées :", vuln_list)
         else:
             print("   ✓ Aucune CVE connue")
 
-
-        # ======= AFFICHAGE DES CVE =======
-        if vuln_list:
-            print("   ⚠️  CVE trouvées :")
-            for cve in vuln_list:
-                print("     -", cve)
-        else:
-            print("   ✓ Aucune CVE connue")
-        # =============================
-        # INSERT / UPDATE DB
-        # =============================
+        vuln_str = ", ".join(v["id"] for v in vuln_list) if vuln_list else None
+        # ================= JSON POUR SYMFONY =================
+        # scanner_rows.append({
+        #    "port": port,
+        #    "service": product,
+        #    "version": version,
+        #    "script_vuln": vuln_str,
+        #    "state": "open",
+        #    "os_detected": os_guess,
+        #    "description": banner[:1000]
+           
+        # })
+        # reconn_data = {
+        #     "ping_id": ping_id,
+        #     "scanner": scanner_rows
+        # }
+        # print("\n@@@RECONNJSON@@@")
+        # print(json.dumps(reconn_data))
+        ##############################
+        #  Store in DB
+        ##############################
         try:
-            cur.execute(""" SELECT id FROM scanner WHERE ping_id=%s AND port=%s """, (ping_id, port))
+            cur.execute("SELECT id FROM scanner WHERE ping_id=%s AND port=%s", (ping_id, port))
             row = cur.fetchone()
 
             if row:
