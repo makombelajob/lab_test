@@ -31,4 +31,7 @@ jobs:
           exclude: |
             **/.git*
             **/node_modules/*
+            **/vendor/*
+            **/var/cache/*
+            **/var/log/*
           dry-run: false
