@@ -11,6 +11,7 @@ class PythonScriptRunner
 
     public function __construct(ParameterBagInterface $params)
     {
+        #$this->pyBin = '/opt/venv/bin/python3';
         $this->pyBin = '/opt/venv/bin/python3';
         $this->projectRoot = $params->get('kernel.project_dir');
     }
