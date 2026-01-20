@@ -142,11 +142,28 @@ def main():
 
             # FTP
             if port == 21:
-                if "filezilla" in b:
+                if "pure-ftpd" in b:
+                    product = "Pure-FTPd"
+                    version = None
+                elif "filezilla server" in b:
                     product = "FileZilla Server"
-                    m = re.search(r"FileZilla Server\s*([0-9\.]+)", banner)
+                    m = re.search(r"FileZilla Server\s*([0-9\.]+(?:\s*beta)?)", banner, re.I)
+                    version = m.group(1) if m else None 
+                elif "vsftpd" in b :
+                    product = "vsptd"
+                    m = re.search(r"vsftpd\s*([0-9\.]+)", banner, re.I)
+                    version = m.group(1) if m else None
+                elif "proftpd" in b :
+                    product = "ProFTPD"
+                    m = re.search(r"ProFTPD\s*([0-9\.]+)", banner, re.I)
                     version = m.group(1) if m else None
 
+            # SMTP
+            if port in (25, 26, 465, 587):
+                if "exim" in b:
+                    product = "Exim"
+                    m = re.search(r"Exim\s+([0-9\.]+)", banner, re.I)
+                    version = m.group(1) if m else None
             # HTTP
             m = re.search(r"Server:\s*([^\r\n]+)", banner, re.I)
             if m and product == "unknown":
@@ -154,21 +171,30 @@ def main():
                 m2 = re.search(r"([A-Za-z\-]+)[/ ]([0-9\.]+)", server_line)
                 product = m2.group(1) if m2 else server_line
                 version = m2.group(2) if m2 else None
+                
+            # MySQL
+            if port == 3306:
+                product = "MySQL"
+                
+            # SMB
+            if port in (139, 445):
+                product = "SMB"   
+                
+            # FTPS
+            if port == 990:
+                product = "FTPS"
 
+            # WinRM
+            if port == 5985:
+                product = "WinRM"
         else:
             product = PORT_SERVICE_MAP.get(port, "unknown")
             print(" Service : Inconnu (no banner)")
 
-        # Fixed services
-        if port == 3306:
-            product = "MySQL"
-        if port == 5985:
-            product = "WinRM"
-
         print(f"   → Détecté : {product} {version}")
 
         # =============================
-        # CVE lookup (TA LOGIQUE)
+        #          CVE lookup 
         # =============================
         vuln_list = []
         bad = ["http","https","ftp","smtp","imap","pop","tcp","udp","rtsp"]
@@ -201,7 +227,7 @@ def main():
         vuln_str = ", ".join(v["id"] for v in vuln_list) if vuln_list else None
 
         # =============================
-        # DB INSERT / UPDATE (TA LOGIQUE)
+        #       DB INSERT / UPDATE 
         # =============================
         try:
             cur.execute(

@@ -38,7 +38,7 @@ def main():
     # ================= RÉCUPÉRATION HOSTNAME + PING_ID =================
     with conn.cursor(dictionary=True) as cur:
         cur.execute(
-            '''SELECT id, hostname FROM ping
+            '''SELECT id, hostname, ip_address FROM ping
                WHERE user_id = %s
                AND ip_address = %s
                AND hostname IS NOT NULL
@@ -53,7 +53,7 @@ def main():
             return
 
         ping_id = row['id']
-        base_url = row['hostname']
+        base_url = row.get('hostname') or row.get('ip_address')
         if not base_url.startswith(('http://', 'https://')):
             base_url = 'http://' + base_url
 
